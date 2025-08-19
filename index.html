@@ -10,5 +10,10 @@
 <link rel="manifest" href="/calculator/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/calculator/registerSW.js"></script></head>
 <body>
 <div id="root"></div>
+<script>
+  if (!location.hash) {
+    location.replace(location.href + "#/exp");
+  }
+</script>
 </body>
 </html>
