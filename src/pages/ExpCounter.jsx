@@ -810,15 +810,6 @@ export default function ExpCounter() {
                 <AccordionDetails>
                     <Stack spacing={2} direction={isMobile ? "column" : "row"} alignItems={"center"}
                            justifyContent={"center"}>
-                        <Tooltip title={<Stack sx={{fontSize: isMobile ? "1em" : "2em"}}>1. 立即吃 =
-                            星期3、5、日各吃三顆，星期一看有沒有購買禮包吃台子，有就吃掉【已經升滿級選這個】 <br/>
-                            2. 達成條件後吃 = 達成設定好的條件後一次過吃（時間/達到修為），其中的過程所有的果實會保存起來，其後遵從“立刻吃”模式
-                            【知道什麼時候可以升滿台子選這個】 <br/>
-                            3. 最少進食量 = 當一次過吃完所有果子能夠達成圓滿才吃，也會累積果實數量，務求消耗最少的果實數量
-                            【不知道什麼時候用】 <br/>
-                            4. 不吃 = 就不吃</Stack>} placement={"top"} arrow>
-                            <HelpOutline/>
-                        </Tooltip>
                         <ToggleButtonGroup exclusive onChange={(e, v) => v !== null ? setTableType(v) : null}
                                            value={tableType} orientation={"vertical"} fullWidth={isMobile}
                                            size={isMobile ? "small" : "medium"}>
@@ -1183,11 +1174,6 @@ export default function ExpCounter() {
                 </DialogContent>
             </Dialog>
 
-            <Tooltip title={<Typography
-                fontSize={"large"}>按下按鈕後會議極快的速度每一次達到圓滿的過程（以一週天作為基礎單位)</Typography>}
-                     placement={"top"} arrow>
-                <HelpOutline/>
-            </Tooltip>
         </Stack>
 
         {record.length !== 0 && <DataDisplay
