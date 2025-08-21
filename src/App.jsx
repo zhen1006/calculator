@@ -31,7 +31,6 @@ function App() {
                     setTab(v);
                     navigate(v);
                 }} aria-label="basic tabs example">
-                    <Tab value={"/money"} label="積分精算器"/>
                     <Tab value={"/exp"} label="經驗計算器"/>
                 </Tabs>
                 <IconButton onClick={() => setDonate(true)} color={"success"} sx={{position: "absolute", top: 0, right: 0}}>

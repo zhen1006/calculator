@@ -37,7 +37,7 @@ import {
     Typography
 } from "@mui/material";
 import {useState} from "react";
-import {Check, ExpandMore, HelpOutline, OndemandVideo, QuestionMarkOutlined, Settings} from "@mui/icons-material";
+import {Check, ExpandMore, OndemandVideo, Settings} from "@mui/icons-material";
 import {pink} from "@mui/material/colors";
 import AnimatedNumbers from "react-animated-numbers";
 import {ExpSelector} from "../components/ExpSelector.jsx";
@@ -512,8 +512,6 @@ export default function ExpCounter() {
 
     return (<Stack spacing={2} sx={{my: 2}}>
         <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
-
-        <Button startIcon={<OndemandVideo />} onClick={() => window.open("https://youtu.be/f1MhQwRrhuE", "_blank")}>使用說明</Button>
 
         <SaveLoader
             save={save}

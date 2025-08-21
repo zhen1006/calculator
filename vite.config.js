@@ -8,7 +8,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   build: {
-    outDir: 'docs',   
+    outDir: 'docs',
     sourcemap: false,
   },
   base: "/calculator/",
