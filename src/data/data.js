@@ -13,12 +13,13 @@ const CULTIVATION_TIERS = [
   { id: 1, name: "結丹" },
   { id: 2, name: "元嬰" },
   { id: 3, name: "化神" },
-  { id: 4, name: "反虛" },
+  { id: 4, name: "返虛" },
   { id: 5, name: "合體" },
   { id: 6, name: "大乘" },
   { id: 7, name: "渡劫" },
   { id: 8, name: "真仙" },
-  { id: 9, name: "金仙" }
+  { id: 9, name: "金仙" },
+  { id: 10, name: "太乙" }
 ];
 
 // 修煉階段配置

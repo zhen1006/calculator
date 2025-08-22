@@ -50,7 +50,7 @@ export function ExpSelector (props) {
                     disabled={props.lock}
                 >
                     {tierList.map((n, i) =>
-                        [...Array(9).keys()].includes(i) && <MenuItem key={n} value={i}>{n}</MenuItem>
+                        <MenuItem key={n} value={i}>{n}</MenuItem>
                     )}
                 </Select>
             </FormControl>
