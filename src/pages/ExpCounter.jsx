@@ -81,6 +81,7 @@ export default function ExpCounter() {
             process,
             exp,
             othersAir,
+            customAddRate,
             voidAir,
             upT,
             upRate,
@@ -118,6 +119,7 @@ export default function ExpCounter() {
                 tier: setTier,
                 level: setLevel,
                 process: setProcess,
+                customAddRate: setCustomAddRate,
                 exp: setExp,
                 air: setOthersAir,
                 othersAir: setOthersAir,
@@ -242,7 +244,7 @@ export default function ExpCounter() {
             extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100; // perfect
             extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100; // half step
             extra += calcAir * completeBuff *(PS[now].tier===PS[0].tier) / 100;
-
+            extra += cal[1] * calcAir * customAddRate / 100; // 自訂吸收率(併入額外吸收率)
             let st1 = (speed1 * cal[0] + extra * cal[1]) * stoneEff[stoneLV] / 100; // 石
 
             speed1 *= cal[0];
@@ -331,7 +333,14 @@ export default function ExpCounter() {
 
                 records.push(sum);
                 sum = {
-                    base: 0, extra: 0, breathe: 0, med: 0, table: 0, stone: 0, god: 0
+                    base: 0, 
+                    extra: 0, 
+                    customAdd: 0,
+                    breathe: 0, 
+                    med: 0, 
+                    table: 0, 
+                    stone: 0, 
+                    god: 0
                 };
 
             }
@@ -462,7 +471,7 @@ export default function ExpCounter() {
     const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
     const [godDoubles, setGodDoubles] = useState(true);
     const [customEffective, setCustomEffective] = useState(false);
-
+    const [customAddRate, setCustomAddRate] = useState(0); // 自訂吸收率 %
     const [subProcess, setSubProcess] = useState({
         tier: 4, level: 0, process: 0, exp: 0
     });
@@ -479,7 +488,8 @@ export default function ExpCounter() {
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const effective = cal[0] * effectiveSpeed;
     const addEfficiency = cal[1] * (effectiveSpeed + ((buff === 2) * 20 * (level < 1)) + ((buff === 3) * 40 * (level < 2))) * (upT > level ? upRate : 0) / 100 + (buff === 2) * 20 * (level < 1) + (buff === 3 || buff === 4) * 40 * (level < 2);
-    const speed = air * ((effective + addEfficiency) / 100);
+    const speed = air * ((effective + addEfficiency + cal[1] * customAddRate) / 100);
+    const customAdd = air * customAddRate / 100;     // 自訂吸收率部分 
     const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
@@ -490,7 +500,8 @@ export default function ExpCounter() {
 
     // final zone
     const finalSpeed = Math.round(air * effective / 100 / 8 * 60 * 60 * 24 * 100) / 100;
-    const finalAdd = Math.round(air * addEfficiency / 100 / 8 * 60 * 60 * 24 * 100) / 100;
+    const finalAdd = Math.round(air * (addEfficiency + cal[1] * customAddRate) / 100 / 8 * 60 * 60 * 24 * 100) / 100;
+    const customPerCycle = air * customAddRate / 100;
     const finalBreathe = Math.round(breatheSpeed * 100) / 100;
     const finalMed = Math.round(medSpeed * 100) / 100;
     const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
@@ -642,13 +653,23 @@ export default function ExpCounter() {
                     sx={{"*": {color: "lightgreen"}}}
                 >
                     額外吸收率
-                    <span>+{finalAdd}</span>
+                    <span>+{finalAdd}</span>  
                 </AccordionSummary>
                 <AccordionDetails>
                     <Stack alignItems={"center"} justifyContent={"space-evenly"}
                            direction={isMobile ? "column" : "row"}
                            spacing={2}>
-
+                        
+                        <FormControl sx={{minWidth: 120}}>
+                          <InputLabel htmlFor="custom-add-input">自訂吸收率</InputLabel>
+                          <OutlinedInput
+                            id="custom-add-input"
+                            value={customAddRate}
+                            onChange={(e) => setCustomAddRate(parseFloat(e.target.value) || 0)}
+                            endAdornment={"%"}
+                            type="number"
+                          />
+                        </FormControl>
                         <FormControl sx={{"*": {color: "lightgreen"}}}>
                             <InputLabel htmlFor={"add-effective-input"}>額外吸收率 (綠色字)</InputLabel>
                             <OutlinedInput
@@ -696,6 +717,13 @@ export default function ExpCounter() {
                             </Card>
                         </Stack>
                     </Stack>
+                      <Typography
+                          variant="body2"
+                          color="textSecondary"
+                          style={{ marginTop: 12 }}
+                        >
+                          💡 Tip: 如果你需要計算半步所需時間，請勾選此處💡
+                        </Typography>
                 </AccordionDetails>
             </Accordion>
             <Accordion sx={{width: "100%"}}>
@@ -1067,7 +1095,7 @@ export default function ExpCounter() {
         <Stack spacing={1}>
 
             <Typography variant={isMobile ? "h6" : "h5"}>
-                修煉速度: {Math.round(speed * 100) / 100} / 周天(8s)
+                修煉速度: {Math.round((air * (effective + addEfficiency + customAddRate) / 100) * 100) / 100} / 周天
             </Typography>
 
             <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
