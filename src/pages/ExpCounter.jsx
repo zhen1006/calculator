@@ -484,7 +484,7 @@ export default function ExpCounter() {
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const effective = cal[0] * effectiveSpeed;
     const addEfficiency = cal[1] * (effectiveSpeed + ((buff === 2) * 20 * (level < 1)) + ((buff === 3) * 40 * (level < 2))) * (upT > level ? upRate : 0) / 100 + (buff === 2) * 20 * (level < 1) + (buff === 3 || buff === 4) * 40 * (level < 2);
-    const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
+    const speed = air * ((effective + addEfficiency) / 100);    const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
@@ -494,6 +494,7 @@ export default function ExpCounter() {
 
     // final zone
     const finalSpeed = Math.round(air * effective / 100 / 8 * 60 * 60 * 24 * 100) / 100;
+    const finalAdd = Math.round(air * (addEfficiency) / 100 / 8 * 60 * 60 * 24 * 100) / 100;
     const finalBreathe = Math.round(breatheSpeed * 100) / 100;
     const finalMed = Math.round(medSpeed * 100) / 100;
     const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
@@ -652,7 +653,6 @@ export default function ExpCounter() {
                            direction={isMobile ? "column" : "row"}
                            spacing={2}>
                         
-
                         <FormControl sx={{"*": {color: "lightgreen"}}}>
                             <InputLabel htmlFor={"add-effective-input"}>額外吸收率 (綠色字)</InputLabel>
                             <OutlinedInput
@@ -1076,9 +1076,8 @@ export default function ExpCounter() {
         </Box>
 
         <Stack spacing={1}>
-
             <Typography variant={isMobile ? "h6" : "h5"}>
-                修煉速度: {Math.round((air * (effective + addEfficiency) / 100) * 100) / 100} / 周天
+              修煉速度: {Math.round((air * (effective + addEfficiency) / 100) * 100) / 100} / 周天
             </Typography>
 
             <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
