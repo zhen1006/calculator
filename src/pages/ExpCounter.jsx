@@ -242,14 +242,26 @@ export default function ExpCounter() {
                     + (PS[0].level < 1 && (buff === 2) ? 20 : 0)
                     + (PS[0].level < 2 && (buff === 3) ? 40 : 0)) / 100)
                 * (PS[0].level < upT || (PS[now].tier < PS[0].tier && upT !== 0) ? upRate / 100 : 0)* yaojieMul; // 奮起
-            extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100; // perfect
-            extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100; // half step
-            extra += calcAir * completeBuff *(PS[now].tier===PS[0].tier) / 100;
-            let st1 = (speed1 * cal[0] + extra * cal[1]) * stoneEff[stoneLV] / 100; // 石
+              extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100 * yaojieMul; // perfect
+              extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100 * yaojieMul; // half step
+              extra += calcAir * completeBuff * (PS[now].tier === PS[0].tier) / 100 * yaojieMul;
+            // 原始基礎百分比
+            let baseStoneEffect = stoneEff[stoneLV];
 
+            // 鍛靈加成：在原始基礎上增加
+            if (stoneForgeEnabled) {
+              baseStoneEffect += stoneForgePercent;
+            }
+
+            let st1 = (speed1 * cal[0] + extra * cal[1]) * baseStoneEffect / 100;
+            st1 *= cal[5];
+
+            // 玄黃納靈印在這個基礎上再計算
+            st1 *= (1 + (stoneSealEnabled ? stoneSealPercent / 100 : 0))* (1 + (stoneSeal2Enabled ? stoneSeal2Percent / 100 : 0));
+            
             speed1 *= cal[0];
             extra *= cal[1];
-            st1 *= cal[5];
+
 
             inc += speed1 + extra + st1;
 
@@ -464,10 +476,14 @@ export default function ExpCounter() {
     const [tableExtra, setTableExtra] = useState(0);
     const [tableControl, setTableControl] = useState([false, false, true]);
     const [tableChance, setTableChance] = useState(1);
-    const [tableTierToStop, setTableTierToStop] = useState({
-        tier: 4, level: 0, process: 0, exp: 0
-    });
+    const [tableTierToStop, setTableTierToStop] = useState({tier: 4, level: 0, process: 0, exp: 0});
     const [stoneLV, setStoneLV] = useState(0);
+    const [stoneSealEnabled, setStoneSealEnabled] = useState(false);
+    const [stoneSealPercent, setStoneSealPercent] = useState(0);
+    const [stoneSeal2Enabled, setStoneSeal2Enabled] = useState(false);
+    const [stoneSeal2Percent, setStoneSeal2Percent] = useState(0);
+    const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
+    const [stoneForgePercent, setStoneForgePercent] = useState(0);
     const [yaojie, setYaojie] = useState(false);
     const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
     const [godDoubles, setGodDoubles] = useState(true);
@@ -496,9 +512,10 @@ export default function ExpCounter() {
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
-    const stoneSpeed = cal[5] * speed * stoneEff[stoneLV] / 100;
     const godDay = [cal[6] * Math.round(((96 * godRegent[gods[0][0]] + 100) / 100 + (gods[0][0] === 5 && godDoubles ? ((96 * godRegent[gods[0][0]] + 100) / 100 * 0.15) : 0)) * 100) / 100, cal[6] * Math.round(((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) + (gods[1][0] === 5 && godDoubles ? ((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) * 0.15) : 0)) * 100) / 100]
     const godSpeed = [Math.round(godDay[0] * gods[0][1] * 10000 * 100) / 100 || 0, Math.round(godDay[1] * gods[0][1] * 10000 * 100) / 100 || 0];
+    const baseStoneEffect = stoneEff[stoneLV] + (stoneForgeEnabled ? stoneForgePercent : 0);
+    const stoneSpeed = cal[5] * speed * (baseStoneEffect / 100) * (1 + (stoneSealEnabled ? stoneSealPercent / 100 : 0));
 
     // final zone
     const finalSpeed = Math.round(air * effective / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
@@ -508,7 +525,6 @@ export default function ExpCounter() {
     const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
     const finalStone = Math.round(stoneSpeed / 8 * 60 * 60 * 24 * 100) / 100;
     const finalGod = Math.round(godSpeed.reduce((a, b) => a + b) * 100) / 100
-
     const [logs, setLogs] = useState([]);
     const [record, setRecord] = useState([]);
     const [counters, setCounters] = useState({
@@ -1022,8 +1038,50 @@ export default function ExpCounter() {
                         </FormControl>
 
                         <span>
-                               +{speed * stoneEff[stoneLV] / 100} / 周天
+                               +{speed * (baseStoneEffect / 100)} / 周天
                             </span>
+                    </Stack>
+                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={stoneSealEnabled}
+                            onChange={(e, v) => setStoneSealEnabled(v)}
+                          />
+                        }
+                        label="玄黃納靈印"
+                      />
+                      {stoneSealEnabled && (
+                        <TextField
+                          label="額外獲得收益(%)"
+                          type="number"
+                          value={stoneSealPercent}
+                          onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)}
+                          sx={{ width: 120 }}
+                          InputProps={{ endAdornment: <span>%</span> }}
+                        />
+                      )}
+                    </Stack>
+                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={stoneForgeEnabled}
+                            onChange={(e, v) => setStoneForgeEnabled(v)}
+                          />
+                        }
+                        label="納靈印鍛靈 (繼承修練速度)"
+                      />
+                      {stoneForgeEnabled && (
+                        <TextField
+                          label="加成(%)"
+                          type="number"
+                          value={stoneForgePercent}
+                          onChange={(e) => setStoneForgePercent(parseFloat(e.target.value) || 0)}
+                          sx={{ width: 120 }}
+                          InputProps={{ endAdornment: <span>%</span> }}
+                        />
+                      )}
                     </Stack>
                 </AccordionDetails>
             </Accordion>
