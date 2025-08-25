@@ -39,6 +39,7 @@ import {
 import {useState} from "react";
 import {Check, ExpandMore, OndemandVideo, Settings} from "@mui/icons-material";
 import {pink} from "@mui/material/colors";
+import Grid from "@mui/material/Grid";
 import AnimatedNumbers from "react-animated-numbers";
 import {ExpSelector} from "../components/ExpSelector.jsx";
 import {DataDisplay} from "../components/DataDisplay.jsx";
@@ -103,6 +104,7 @@ export default function ExpCounter() {
             dir,
             subProcess,
             thirdProcess,
+            yaojie,
         };
         localStorage.setItem(`data ${i}`, JSON.stringify(saveList));
         toast.success("Saved!")
@@ -143,6 +145,7 @@ export default function ExpCounter() {
                 dir: setDir,
                 subProcess: setSubProcess,
                 thirdProcess: setThirdProcess,
+                yaojie: setYaojie,
             };
 
             Object.entries(setters).forEach(([key, setter]) => setter(data[key] || 0));
@@ -233,12 +236,12 @@ export default function ExpCounter() {
                 fruitAmount = 0;
             }
             let calcAir = PS[now].tier === 1 ? voidAir : othersAir;
-            let speed1 = calcAir * (customEffective === false ? (effList[PS[0].tier][PS[0].level] / 100) : customEffective / 100); // 修煉速度
+            let speed1 = calcAir * (customEffective === false ? (effList[PS[0].tier][PS[0].level] / 100) : customEffective / 100)* yaojieMul; // 修煉速度
             let extra = calcAir * ((
                     (customEffective === false ? effList[PS[0].tier][PS[0].level] : customEffective)
                     + (PS[0].level < 1 && (buff === 2) ? 20 : 0)
                     + (PS[0].level < 2 && (buff === 3) ? 40 : 0)) / 100)
-                * (PS[0].level < upT || (PS[now].tier < PS[0].tier && upT !== 0) ? upRate / 100 : 0) // 奮起
+                * (PS[0].level < upT || (PS[now].tier < PS[0].tier && upT !== 0) ? upRate / 100 : 0)* yaojieMul; // 奮起
             extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100; // perfect
             extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100; // half step
             extra += calcAir * completeBuff *(PS[now].tier===PS[0].tier) / 100;
@@ -465,6 +468,7 @@ export default function ExpCounter() {
         tier: 4, level: 0, process: 0, exp: 0
     });
     const [stoneLV, setStoneLV] = useState(0);
+    const [yaojie, setYaojie] = useState(false);
     const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
     const [godDoubles, setGodDoubles] = useState(true);
     const [customEffective, setCustomEffective] = useState(false);
@@ -484,7 +488,11 @@ export default function ExpCounter() {
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const effective = cal[0] * effectiveSpeed;
     const addEfficiency = cal[1] * (effectiveSpeed + ((buff === 2) * 20 * (level < 1)) + ((buff === 3) * 40 * (level < 2))) * (upT > level ? upRate : 0) / 100 + (buff === 2) * 20 * (level < 1) + (buff === 3 || buff === 4) * 40 * (level < 2);
-    const speed = air * ((effective + addEfficiency) / 100);    const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
+    const totalEfficiency = effective + addEfficiency;
+    const yaojieEffective = yaojie ? totalEfficiency * 1.7 : totalEfficiency;
+    const yaojieMul = yaojie ? 1.7 : 1;
+    const speed = air * ((effective + addEfficiency) / 100) * yaojieMul; 
+    const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
@@ -493,8 +501,8 @@ export default function ExpCounter() {
     const godSpeed = [Math.round(godDay[0] * gods[0][1] * 10000 * 100) / 100 || 0, Math.round(godDay[1] * gods[0][1] * 10000 * 100) / 100 || 0];
 
     // final zone
-    const finalSpeed = Math.round(air * effective / 100 / 8 * 60 * 60 * 24 * 100) / 100;
-    const finalAdd = Math.round(air * (addEfficiency) / 100 / 8 * 60 * 60 * 24 * 100) / 100;
+    const finalSpeed = Math.round(air * effective / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
+    const finalAdd   = Math.round(air * (addEfficiency) / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
     const finalBreathe = Math.round(breatheSpeed * 100) / 100;
     const finalMed = Math.round(medSpeed * 100) / 100;
     const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
@@ -640,75 +648,119 @@ export default function ExpCounter() {
                 </AccordionDetails>
             </Accordion>
 
-            <Accordion sx={{width: "100%"}} defaultExpanded>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "lightgreen"}}}
-                >
-                    額外吸收率
-                    <span>+{finalAdd}</span>  
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack alignItems={"center"} justifyContent={"space-evenly"}
-                           direction={isMobile ? "column" : "row"}
-                           spacing={2}>
-                        
-                        <FormControl sx={{"*": {color: "lightgreen"}}}>
-                            <InputLabel htmlFor={"add-effective-input"}>額外吸收率 (綠色字)</InputLabel>
-                            <OutlinedInput
-                                value={addEfficiency}
-                                id={"add-effective-input"}
-                                variant="outlined"
-                                label={"額外吸收率 (綠色字)"}
-                                startAdornment={"+"}
-                                endAdornment={"%"}
-                                type="number"
-                                disabled
+            <Accordion sx={{ width: "100%" }} defaultExpanded>
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                sx={{ "*": { color: "lightgreen" } }}
+              >
+                額外吸收率
+                <span>+{finalAdd}</span>
+              </AccordionSummary>
+
+              <AccordionDetails>
+                <Grid container spacing={4}>
+                  {/* 左邊：妖界降臨 + 總吸收率 + 額外吸收率 */}
+                  <Grid item xs={12} md={6}>
+                  <Stack direction="column" spacing={2} sx={{ minWidth: 240 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox checked={yaojie} onChange={(e, v) => setYaojie(v)} />
+                      }
+                      label={"妖界降臨(以滿級70%計算)"}
+                    />
+
+                    <FormControl sx={{ minWidth: 240 }}>
+                      <InputLabel htmlFor={"yaojie-effective-input"}>總吸收率</InputLabel>
+                      <OutlinedInput
+                        id={"yaojie-effective-input"}
+                        value={yaojieEffective.toFixed(1)}
+                        label={"總吸收率"}
+                        startAdornment={"≈"}
+                        endAdornment={"%"}
+                        type="number"
+                        disabled
+                      />
+                    </FormControl>
+
+                    <FormControl sx={{ "*": { color: "lightgreen" }, minWidth: 240 }}>
+                      <InputLabel htmlFor={"add-effective-input"}>
+                        額外吸收率 (綠色字)
+                      </InputLabel>
+                      <OutlinedInput
+                        value={addEfficiency}
+                        id={"add-effective-input"}
+                        variant="outlined"
+                        label={"額外吸收率 (綠色字)"}
+                        startAdornment={"+"}
+                        endAdornment={"%"}
+                        type="number"
+                        disabled
+                      />
+                    </FormControl>
+                  </Stack>
+                </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <Stack direction="row" spacing={2} justifyContent="center">
+                    <Card sx={{ height: "100%", width: 125 }} elevation={5}>
+                      <CardContent>
+                        <Typography color={"success"}>奮起</Typography>
+                        <FormGroup>
+                          {levelList.slice(0, 3).map((name, i) => (
+                            <FormControlLabel
+                              checked={upT - 1 >= i}
+                              onChange={() => setUpT(upT === i + 1 ? 0 : i + 1)}
+                              control={<Checkbox size={"small"} />}
+                              label={name}
+                              key={name}
                             />
+                          ))}
+                        </FormGroup>
+                        <FormControl variant={"standard"} fullWidth>
+                          <Select value={upRate} onChange={(e) => setUpRate(e.target.value)}>
+                            {[15, 20, 25, 30].map((i) => (
+                              <MenuItem value={i} key={i}>
+                                {i}%
+                              </MenuItem>
+                            ))}
+                          </Select>
                         </FormControl>
-                        <Stack alignItems={"center"} justifyContent={"space-evenly"} direction={"row"} spacing={2}>
+                      </CardContent>
+                    </Card>
 
-                            <Card sx={{height: "100%", width: 125}} elevation={5}>
-                                <CardContent>
-                                    <Typography color={"success"}>奮起</Typography>
-                                    <FormGroup>
-                                        {levelList.slice(0, 3).map((name, i) => <FormControlLabel
-                                            checked={upT - 1 >= i}
-                                            onChange={() => setUpT(upT === i + 1 ? 0 : i + 1)}
-                                            control={<Checkbox size={"small"}/>} label={name}
-                                            key={name}
-                                        />)}
-                                    </FormGroup>
-                                    <FormControl variant={"standard"} fullWidth>
-                                        <Select value={upRate} onChange={(e) => setUpRate(e.target.value)}>
-                                            {[15, 20, 25, 30].map(i => <MenuItem value={i} key={i}>{i}%</MenuItem>)}
-                                        </Select>
-                                    </FormControl>
-                                </CardContent>
-                            </Card>
-
-                            <Card sx={{height: "100%", width: 150}} elevation={5}>
-                                <CardContent>
-                                    <Typography color={"aquamarine"}> 前一境界<br/>修煉精進</Typography>
-                                    <RadioGroup value={buff} onChange={(e, v) => setBuff(parseInt(v))}>
-                                        {Object.entries(buffs).map(([name, color], i) => <FormControlLabel
-                                            value={i} sx={{color: color}} control={<Radio size={"small"}/>} label={name}
-                                            key={name}
-                                        />)}
-                                    </RadioGroup>
-                                </CardContent>
-                            </Card>
-                        </Stack>
-                    </Stack>
-                      <Typography
-                          variant="body2"
-                          color="textSecondary"
-                          style={{ marginTop: 12 }}
-                        >
-                          💡 Tip: 如果你需要計算半步所需時間，請勾選此處💡
+                    <Card sx={{ height: "100%", width: 150 }} elevation={5}>
+                      <CardContent>
+                        <Typography color={"aquamarine"}>
+                          前一境界<br />
+                          修煉精進
                         </Typography>
-                </AccordionDetails>
+                        <RadioGroup value={buff} onChange={(e, v) => setBuff(parseInt(v))}>
+                          {Object.entries(buffs).map(([name, color], i) => (
+                            <FormControlLabel
+                              value={i}
+                              sx={{ color: color }}
+                              control={<Radio size={"small"} />}
+                              label={name}
+                              key={name}
+                            />
+                          ))}
+                        </RadioGroup>
+                      </CardContent>
+                    </Card>
+                  </Stack>
+                 </Grid>
+                </Grid>
+
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  style={{ marginTop: 12 }}
+                >
+                  💡 Tip: 如果你需要計算半步所需時間，請勾選此處💡
+                </Typography>
+              </AccordionDetails>
             </Accordion>
+
             <Accordion sx={{width: "100%"}}>
                 <AccordionSummary
                     expandIcon={<ExpandMore/>}
@@ -1077,7 +1129,7 @@ export default function ExpCounter() {
 
         <Stack spacing={1}>
             <Typography variant={isMobile ? "h6" : "h5"}>
-              修煉速度: {Math.round((air * (effective + addEfficiency) / 100) * 100) / 100} / 周天
+              修煉速度: {Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * 100) / 100} / 周天            
             </Typography>
 
             <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
