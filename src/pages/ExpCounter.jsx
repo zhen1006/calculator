@@ -256,7 +256,10 @@ export default function ExpCounter() {
                 + (PS[0]?.level < 1 && (buff === 2) ? 20 : 0)
                 + (PS[0]?.level < 2 && (buff === 3) ? 40 : 0)) / 100)
                 * (PS[0]?.level < upT || (PS[0]?.tier < PS[0]?.tier && upT !== 0) ? upRate / 100 : 0) * yaojieMul;
-            // 原始基礎百分比
+                extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100 * yaojieMul; 
+                extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100 * yaojieMul; 
+                extra += calcAir * completeBuff * (PS[now].tier === PS[0].tier) / 100 * yaojieMul;
+
             let baseStoneEffect = stoneEff[stoneLV];
 
             // 鍛靈加成：在原始基礎上增加
