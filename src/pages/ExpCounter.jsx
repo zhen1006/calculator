@@ -36,7 +36,7 @@ import {
     Tooltip,
     Typography
 } from "@mui/material";
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {Check, ExpandMore, OndemandVideo, Settings} from "@mui/icons-material";
 import {pink} from "@mui/material/colors";
 import Grid from "@mui/material/Grid";
@@ -185,46 +185,57 @@ export default function ExpCounter() {
         return [totalGain, c, ct]
     }
 
-    const calc = (mainP, subP = {}, thirdP = {}) => {
-        let log = new Set();
-        let vd = 0;
-        let records = [];
-        let sum = {
-            base: 0, extra: 0, breathe: 0, med: 0, table: 0, stone: 0, god: 0,
-        };
-        let godEnergy = [0, 0, 0];
-        let chargeTime = 0;
-        let fruitAmount = tableCount;
-        let counter = {
-            breathe: 0, med: [0, 0, 0, 0, 0, 0], chance: 0, doubles: 0, eat: 0,
+    const calc = (mainP, subP = {}, thirdP = {}) => {   
+    let log = new Set();
+    let vd = 0;
+    let records = [];
+    let sum = {
+        base: 0, extra: 0, breathe: 0, med: 0, table: 0, stone: 0, god: 0,
+    };
+    let godEnergy = [0, 0, 0];
+    let chargeTime = 0;
+    let fruitAmount = tableCount;
+    let counter = {
+        breathe: 0, med: [0, 0, 0, 0, 0, 0], chance: 0, doubles: 0, eat: 0,
+    }
+    let reachDays = {};
+    let gods1 = JSON.parse(JSON.stringify(gods));
+    let gains = 0;
+    let tb = 0;
+    let inc = 0;
+    let tableCanEat = false;
+    let completeBuff = 0;
+
+    // 使用組件級別已經計算好的主修速度
+    const mainCultivationSpeed = speed;
+    
+    // control
+    if (!cal[6]) {
+        gods1[0][0] = -1;
+        gods1[1][0] = -1;
+    }
+    let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
+
+    let now = dir;
+    let purpleFurnaceSpeed = 0;
+    if (purpleFurnaceEnabled && purpleFurnacePercent > 0) {
+        purpleFurnaceSpeed = mainCultivationSpeed * (purpleFurnacePercent / 100);
+    }
+    let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
+    let nichenzhuTotalGain = 0;
+    let nichenzhuUseCount = 0;
+    let dailyNichenzhuUses = {};
+
+    while (true) {
+        vd += 1;
+        chargeTime += 8;
+            
+        if (chargeTime >= 900) {
+            chargeTime -= 900;
+            // god regent
+            godEnergy[0] += godRegent[gods1[0][0]] || 0;
+            godEnergy[1] += godRegent[gods1[1][0]] || 0;
         }
-        let reachDays = {};
-        let gods1 = JSON.parse(JSON.stringify(gods));
-        let gains = 0;
-        let tb = 0;
-        let inc = 0;
-        let tableCanEat = false;
-        let completeBuff = 0;
-
-        // control
-        if (!cal[6]) {
-            gods1[0][0] = -1;
-            gods1[1][0] = -1;
-        }
-        let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
-
-        let now = dir;
-
-        while (true) {
-
-            vd += 1;
-            chargeTime += 8
-            if (chargeTime >= 900) {
-                chargeTime -= 900
-                // god regent
-                godEnergy[0] += godRegent[gods1[0][0]] || 0;
-                godEnergy[1] += godRegent[gods1[1][0]] || 0;
-            }
 
             // check if can eat
 
@@ -235,16 +246,16 @@ export default function ExpCounter() {
                 sum.table += gains;
                 fruitAmount = 0;
             }
-            let calcAir = PS[now].tier === 1 ? voidAir : othersAir;
-            let speed1 = calcAir * (customEffective === false ? (effList[PS[0].tier][PS[0].level] / 100) : customEffective / 100)* yaojieMul; // 修煉速度
+            let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
+            let speed1 = calcAir * (customEffective === false ? 
+                ((effList[PS[0]?.tier]?.[PS[0]?.level] || 0) / 100) : 
+                customEffective / 100) * yaojieMul;
+
             let extra = calcAir * ((
-                    (customEffective === false ? effList[PS[0].tier][PS[0].level] : customEffective)
-                    + (PS[0].level < 1 && (buff === 2) ? 20 : 0)
-                    + (PS[0].level < 2 && (buff === 3) ? 40 : 0)) / 100)
-                * (PS[0].level < upT || (PS[now].tier < PS[0].tier && upT !== 0) ? upRate / 100 : 0)* yaojieMul; // 奮起
-              extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100 * yaojieMul; // perfect
-              extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100 * yaojieMul; // half step
-              extra += calcAir * completeBuff * (PS[now].tier === PS[0].tier) / 100 * yaojieMul;
+                (customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective)
+                + (PS[0]?.level < 1 && (buff === 2) ? 20 : 0)
+                + (PS[0]?.level < 2 && (buff === 3) ? 40 : 0)) / 100)
+                * (PS[0]?.level < upT || (PS[0]?.tier < PS[0]?.tier && upT !== 0) ? upRate / 100 : 0) * yaojieMul;
             // 原始基礎百分比
             let baseStoneEffect = stoneEff[stoneLV];
 
@@ -268,6 +279,10 @@ export default function ExpCounter() {
             sum.base += speed1;
             sum.extra += extra;
             sum.stone += st1;
+            
+            if (purpleFurnaceEnabled && purpleFurnacePercent > 0) {
+                PS[1].exp += purpleFurnaceSpeed; // 直接為輔修添加經驗
+            }
 
             if (vd % 10800 === 0) {
                 // god
@@ -295,6 +310,41 @@ export default function ExpCounter() {
                     sum.god += gods1[0][1] * 10000;
                     inc += gods1[0][1] * 10000;
                 }
+            if (nichenzhuEnabled) {
+
+                const dailyRecovery = nichenzhuConfig[nichenzhuStars].dailyRecovery || 100;
+                nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + dailyRecovery);
+
+                const currentDay = Math.floor(vd / 10800);
+                dailyNichenzhuUses[currentDay] = 0;
+                
+                log.add(`${timeString(vd * 8)}: 逆塵珠每日恢復 ${dailyRecovery} 能量，當前: ${nichenzhuEnergy}/${nichenzhuConfig[nichenzhuStars].maxEnergy}`);
+            }
+
+            if (nichenzhuEnabled && nichenzhuEnergy >= nichenzhuEnergyCost) {
+                const currentDay = Math.floor(vd / 10800);
+                const maxDailyUses = 20;
+    
+                const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
+                const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
+                const actualUses = Math.min(availableUses, remainingDailyUses);
+    
+                if (actualUses > 0) {
+                    const zhoutianMultiplier = nichenzhuStars >= 1 ? 1200 : 1000;
+                    
+                    const nichenzhuGainPerUse = mainCultivationSpeed * zhoutianMultiplier;
+                    const totalGain = actualUses * nichenzhuGainPerUse;
+        
+                    nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
+                    nichenzhuUseCount += actualUses;
+                    PS[1].exp += totalGain;
+                    nichenzhuTotalGain += totalGain;
+                    
+                    dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
+                                
+                    log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（相當於${zhoutianMultiplier}周天主修修煉）`);
+                }
+            }                        
 
                 // breathe
                 inc += breatheSpeed;
@@ -374,8 +424,9 @@ export default function ExpCounter() {
             }
 
             // stop done.
-            if (stopType === 1 && vd / 10800 === stop) {
-                log.add("date reach.");
+            if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
+                const actualDays = Math.floor(vd / 10800);
+                log.add("到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）");
                 break;
             }
             if (stopType === 0) {
@@ -441,6 +492,42 @@ export default function ExpCounter() {
             }
             inc = 0;
         }
+            const calculateLevelPercentage = (tier, level, process, exp) => {
+                if (level === 3) return 100; // 圓滿直接返回100%
+    
+                const levelExpData = exps[tier]?.[level];
+                if (!levelExpData || levelExpData.length === 0) return 0;
+    
+                const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+               const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+    
+                return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+            };
+            const finalResults = {
+                main: {
+                    tier: PS[0].tier,
+                    level: PS[0].level,
+                    process: PS[0].process,
+                    exp: PS[0].exp,
+                    percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
+                },
+                sub: {
+                    tier: PS[1].tier,
+                    level: PS[1].level,
+                    process: PS[1].process,
+                    exp: PS[1].exp,
+                    percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
+                },
+                third: {
+                    tier: PS[2].tier,
+                    level: PS[2].level,
+                    process: PS[2].process,
+                    exp: PS[2].exp,
+                    percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
+                }
+            };
+    
+                setFinalResults(finalResults);
         setLogs(Array.from(log));
         setFullTime(vd);
         setRecord(records);
@@ -450,6 +537,8 @@ export default function ExpCounter() {
         setCounters(counter);
         setFinal({t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel});
         return vd;
+        log.add(`逆塵珠總使用次數: ${nichenzhuUseCount}`);
+        log.add(`逆塵珠總收益: ${formatNumber(nichenzhuTotalGain)} 修為`);
     };
 
     const isMobile = window.mobileCheck();
@@ -484,6 +573,25 @@ export default function ExpCounter() {
     const [stoneSeal2Percent, setStoneSeal2Percent] = useState(0);
     const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
     const [stoneForgePercent, setStoneForgePercent] = useState(0);
+    const [purpleFurnaceEnabled, setPurpleFurnaceEnabled] = useState(false);
+    const [purpleFurnacePercent, setPurpleFurnacePercent] = useState(0);
+    const [nichenzhuEnabled, setNichenzhuEnabled] = useState(false);
+    const [nichenzhuStars, setNichenzhuStars] = useState(0);
+    const [nichenzhuTransform, setNichenzhuTransform] = useState(false);
+    const [nichenzhuDailyGain, setNichenzhuDailyGain] = useState(0);
+    const [nichenzhuDailyUses, setNichenzhuDailyUses] = useState(0);
+    const [nichenzhuEnergyCost, setNichenzhuEnergyCost] = useState(100);
+    const [nichenzhuEnergyMax, setNichenzhuEnergyMax] = useState(200);
+    const [nichenzhuRecoveryRate, setNichenzhuRecoveryRate] = useState(0);
+    const [nichenzhuCultivationMultiplier, setNichenzhuCultivationMultiplier] = useState(1.0);    
+    const nichenzhuConfig = {
+        0: { maxEnergy: 200, recoveryRate: 1.0, dailyRecovery: 100, costReduction: 0, cultivationBonus: 1.0 },
+        1: { maxEnergy: 300, recoveryRate: 1.3, dailyRecovery: 120, costReduction: 0, cultivationBonus: 1.2 },
+        2: { maxEnergy: 400, recoveryRate: 1.6, dailyRecovery: 140, costReduction: 0, cultivationBonus: 1.2 },
+        3: { maxEnergy: 500, recoveryRate: 2.0, dailyRecovery: 160, costReduction: 0, cultivationBonus: 1.2 },
+        4: { maxEnergy: 600, recoveryRate: 2.4, dailyRecovery: 180, costReduction: 0, cultivationBonus: 1.2 },
+        5: { maxEnergy: 700, recoveryRate: 3.0, dailyRecovery: 200, costReduction: 0.1, cultivationBonus: 1.2 }
+    };
     const [yaojie, setYaojie] = useState(false);
     const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
     const [godDoubles, setGodDoubles] = useState(true);
@@ -516,6 +624,43 @@ export default function ExpCounter() {
     const godSpeed = [Math.round(godDay[0] * gods[0][1] * 10000 * 100) / 100 || 0, Math.round(godDay[1] * gods[0][1] * 10000 * 100) / 100 || 0];
     const baseStoneEffect = stoneEff[stoneLV] + (stoneForgeEnabled ? stoneForgePercent : 0);
     const stoneSpeed = cal[5] * speed * (baseStoneEffect / 100) * (1 + (stoneSealEnabled ? stoneSealPercent / 100 : 0));
+    const purpleFurnaceSpeed = purpleFurnaceEnabled && purpleFurnacePercent > 0 ? Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * (purpleFurnacePercent / 100) * 100) / 100 : 0;
+        const config = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars] : { maxEnergy: 0, recoveryRate: 0 };
+    const baseCost = 100;
+    const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
+    const transformReduction = nichenzhuTransform ? 0.1 : 0;
+    useEffect(() => {
+    if (nichenzhuEnabled) {
+        const config = nichenzhuConfig[nichenzhuStars];
+        
+        // 计算能量消耗
+        const baseCost = 100;
+        const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
+        const transformReduction = nichenzhuTransform ? 0.1 : 0;
+        const energyCost = Math.floor(baseCost * (1 - starReduction) * (1 - transformReduction));
+        
+        // 使用每日恢复量而不是恢复速率
+        const dailyRecovery = config.dailyRecovery;
+        const dailyUses = Math.floor(dailyRecovery / energyCost);
+        
+        setNichenzhuEnergyCost(energyCost);
+        setNichenzhuEnergyMax(config.maxEnergy);
+        setNichenzhuRecoveryRate(config.recoveryRate);
+        
+        const cultivationMultiplier = nichenzhuStars >= 1 ? 1.2 : 1.0;
+        const baseGainPerUse = speed * cultivationMultiplier;
+        const dailyGain = baseGainPerUse * dailyUses;
+        
+        setNichenzhuDailyUses(dailyUses);
+        setNichenzhuDailyGain(dailyGain);
+    } else {        
+        setNichenzhuEnergyCost(100);
+        setNichenzhuEnergyMax(200);
+        setNichenzhuRecoveryRate(0);
+        setNichenzhuDailyUses(0);
+        setNichenzhuDailyGain(0);
+    }
+}, [nichenzhuEnabled, nichenzhuStars, nichenzhuTransform, speed]);
 
     // final zone
     const finalSpeed = Math.round(air * effective / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
@@ -532,11 +677,251 @@ export default function ExpCounter() {
     });
 
     const [final, setFinal] = useState(null);
-
+    const [finalResults, setFinalResults] = useState(null);
     const [stopSetDialog, setStopSetDialog] = useState(false);
     const [stopType, setStopType] = useState(0);
     const [stopLevel, setStopLevel] = useState(0);
     const [stopTime, setStopTime] = useState(30);
+    const ResultsPanel = ({ results }) => {
+    if (!results) return null;
+    const calculateNichenzhuValues = () => {
+    if (nichenzhuEnabled) {
+        const config = nichenzhuConfig[nichenzhuStars];
+        
+        const baseCost = 100;
+        const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
+        const transformReduction = nichenzhuTransform ? 0.1 : 0;
+        const energyCost = Math.floor(baseCost * (1 - starReduction) * (1 - transformReduction));
+        const dailyEnergy = config.recoveryRate * 96;
+        const dailyUses = Math.floor(dailyEnergy / energyCost);
+        const cultivationMultiplier = nichenzhuStars >= 1 ? 1.2 : 1.0;
+        const mainCultivationSpeed = air * ((effective + addEfficiency) / 100) * yaojieMul;
+        const baseGainPerUse = mainCultivationSpeed * cultivationMultiplier;
+        const dailyGain = baseGainPerUse * dailyUses;
+        
+        return {
+            energyCost,
+            dailyUses,
+            dailyGain,
+            cultivationMultiplier,
+            maxEnergy: config.maxEnergy,
+            recoveryRate: config.recoveryRate
+        };
+    }
+    
+    return {
+        energyCost: 0,
+        dailyUses: 0,
+        dailyGain: 0,
+        cultivationMultiplier: 1.0,
+        maxEnergy: 0,
+        recoveryRate: 0
+    };
+};
+
+       const formatCultivationInfo = (cultivation) => {
+        const isMaxLevel = cultivation.level === 3;
+        
+        if (isMaxLevel) {
+            return {
+                levelDisplay: "後期",
+                processDisplay: 20,
+                percentageDisplay: "100%(圓滿)",
+                isMaxLevel: true
+            };
+        }
+        const tierExpData = exps[cultivation.tier];
+        if (!tierExpData || cultivation.level >= tierExpData.length) {
+            return {
+                levelDisplay: levelList[cultivation.level] || "未知",
+                processDisplay: cultivation.process + 1,
+                percentageDisplay: `${formatNumber(0)}%`,
+                isMaxLevel: false
+            };
+        }
+        const levelExpData = tierExpData[cultivation.level];
+        if (!levelExpData || levelExpData.length === 0) {
+            return {
+                levelDisplay: levelList[cultivation.level] || "未知",
+                processDisplay: cultivation.process + 1,
+                percentageDisplay: `${formatNumber(0)}%`,
+                isMaxLevel: false
+            };
+        }
+        
+        const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+        const accumulatedExp = levelExpData.slice(0, cultivation.process).reduce((a, b) => a + b, 0) + cultivation.exp;
+        const percentage = Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+        let actualProcessDisplay = 1;
+        let currentExp = 0;
+        
+        for (let i = 0; i < levelExpData.length; i++) {
+            currentExp += levelExpData[i];
+            if (accumulatedExp <= currentExp) {
+                actualProcessDisplay = i + 1;
+                break;
+            }
+        }
+
+        return {
+            levelDisplay: levelList[cultivation.level] || "未知",
+            processDisplay: actualProcessDisplay,
+            percentageDisplay: `${formatNumber(percentage)}%`,
+            isMaxLevel: false
+        };
+    };
+
+    const mainInfo = formatCultivationInfo(results.main);
+    const subInfo = formatCultivationInfo(results.sub);
+    const thirdInfo = formatCultivationInfo(results.third);
+
+        return (
+        <Card sx={{ mt: 2, p: 2, backgroundColor: 'rgba(0,0,0,0.1)' }}>
+            <Typography variant="h6" gutterBottom>
+                計算結果 - 境界進度
+            </Typography>
+            
+            <Grid container spacing={2}>
+                {/* 主修進度 */}
+                <Grid item xs={12} md={4}>
+                    <Card variant="outlined" sx={{ p: 2 }}>
+                        <Typography variant="subtitle1" color="primary" gutterBottom>
+                            主修進度
+                        </Typography>
+                        <Stack spacing={1}>
+                            <Typography>
+                                境界: {tierList[results.main.tier]}
+                            </Typography>
+                            <Typography>
+                                階段: {mainInfo.levelDisplay}
+                            </Typography>
+                            <Typography>
+                                重數: {mainInfo.processDisplay}重
+                            </Typography>
+                            <Typography>
+                                進度: {mainInfo.percentageDisplay}
+                            </Typography>
+                            <LinearProgress 
+                                variant="determinate" 
+                                value={mainInfo.isMaxLevel ? 100 : parseFloat(mainInfo.percentageDisplay)} 
+                                sx={{ 
+                                    mt: 1, 
+                                    height: 10, 
+                                    borderRadius: 5,
+                                    backgroundColor: mainInfo.isMaxLevel ? 'success.main' : 'primary.main'
+                                }}
+                            />
+                            {mainInfo.isMaxLevel && (
+                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
+                                    🎉 已達圓滿境界
+                                </Typography>
+                            )}
+                        </Stack>
+                    </Card>
+                </Grid>
+                
+                {/* 輔修進度 */}
+                <Grid item xs={12} md={4}>
+                    <Card variant="outlined" sx={{ p: 2 }}>
+                        <Typography variant="subtitle1" color="secondary" gutterBottom>
+                            輔修進度
+                        </Typography>
+                        <Stack spacing={1}>
+                            <Typography>
+                                境界: {tierList[results.sub.tier]}
+                            </Typography>
+                            <Typography>
+                                階段: {subInfo.levelDisplay}
+                            </Typography>
+                            <Typography>
+                                重數: {subInfo.processDisplay}重
+                            </Typography>
+                            <Typography>
+                                進度: {subInfo.percentageDisplay}
+                            </Typography>
+                            <LinearProgress 
+                                variant="determinate" 
+                                value={subInfo.isMaxLevel ? 100 : parseFloat(subInfo.percentageDisplay)} 
+                                sx={{ 
+                                    mt: 1, 
+                                    height: 10, 
+                                    borderRadius: 5,
+                                    backgroundColor: subInfo.isMaxLevel ? 'success.main' : 'secondary.main'
+                                }}
+                            />
+                            {subInfo.isMaxLevel && (
+                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
+                                    🎉 已達圓滿境界
+                                </Typography>
+                            )}
+                        </Stack>
+                    </Card>
+                </Grid>
+                
+                {/* 三修進度 */}
+                <Grid item xs={12} md={4}>
+                    <Card variant="outlined" sx={{ p: 2 }}>
+                        <Typography variant="subtitle1" color="warning.main" gutterBottom>
+                            三修進度
+                        </Typography>
+                        <Stack spacing={1}>
+                            <Typography>
+                                境界: {tierList[results.third.tier]}
+                            </Typography>
+                            <Typography>
+                                階段: {thirdInfo.levelDisplay}
+                            </Typography>
+                            <Typography>
+                                重數: {thirdInfo.processDisplay}重
+                            </Typography>
+                            <Typography>
+                                進度: {thirdInfo.percentageDisplay}
+                            </Typography>
+                            <LinearProgress 
+                                variant="determinate" 
+                                value={thirdInfo.isMaxLevel ? 100 : parseFloat(thirdInfo.percentageDisplay)} 
+                                sx={{ 
+                                    mt: 1, 
+                                    height: 10, 
+                                    borderRadius: 5,
+                                    backgroundColor: thirdInfo.isMaxLevel ? 'success.main' : 'warning.main'
+                                }}
+                            />
+                            {thirdInfo.isMaxLevel && (
+                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
+                                    🎉 已達圓滿境界
+                                </Typography>
+                            )}
+                        </Stack>
+                    </Card>
+                </Grid>
+            </Grid>
+            
+            {/* 顯示詳細的經驗信息 */}
+            <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMore/>}>
+                    <Typography variant="caption">詳細經驗信息</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                    <Stack spacing={1}>
+                        <Typography variant="caption">
+                            主修: 境界 {tierList[results.main.tier]}, 階段 {levelList[results.main.level]}, 
+                            重數 {results.main.process + 1}, 經驗 {formatNumber(results.main.exp)} / {formatNumber(exps[results.main.tier][results.main.level][results.main.process] || 0)}
+                        </Typography>
+                        <Typography variant="caption">
+                            輔修: 境界 {tierList[results.sub.tier]}, 階段 {levelList[results.sub.level]}, 
+                            重數 {results.sub.process + 1}, 經驗 {formatNumber(results.sub.exp)} / {formatNumber(exps[results.sub.tier][results.sub.level][results.sub.process] || 0)}
+                        </Typography>
+                        <Typography variant="caption">
+                            三修: 境界 {tierList[results.third.tier]}, 階段 {levelList[results.third.level]}, 
+                            重數 {results.third.process + 1}, 經驗 {formatNumber(results.third.exp)} / {formatNumber(exps[results.third.tier][results.third.level][results.third.process] || 0)}
+                        </Typography>
+                    </Stack>
+                </AccordionDetails>
+            </Accordion>
+        </Card>
+    );
+};
 
     return (<Stack spacing={2} sx={{my: 2}}>
         <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1157,10 +1542,6 @@ export default function ExpCounter() {
                             </Stack>
                             <Divider flexItem orientation={isMobile ? "horizontal" : "vertical"}/>
                         </>)}
-                        <Stack alignItems={"center"} width={"100%"} p={3}>
-                            逆塵珠
-                            WIP
-                        </Stack>
                     </Stack>
                 </AccordionDetails>
                 <AccordionActions>
@@ -1178,17 +1559,111 @@ export default function ExpCounter() {
                     expandIcon={<ExpandMore/>}
                     sx={{"*": {color: "grey"}}}
                 >
-                    其他
+                    輔修相關
                 </AccordionSummary>
                 <AccordionDetails>
-                </AccordionDetails>
-            </Accordion>
-        </Box>
+                   <Grid container spacing={3}>
+                        {/* 左側 - 紫闕合道爐 */}
+                        <Grid item xs={12} md={6}>
+                           <Stack spacing={2} alignItems="center">
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={purpleFurnaceEnabled}
+                                            onChange={(e, v) => setPurpleFurnaceEnabled(v)}
+                                        />
+                                    }
+                                    label="紫闕合道爐"
+                                    sx={{width: "100%", justifyContent: "center"}}
+                                />
+                                
+                                {purpleFurnaceEnabled && (
+                                    <TextField
+                                        label="輔修獨立修煉"
+                                        type="number"
+                                        value={purpleFurnacePercent}
+                                        onChange={(e) => setPurpleFurnacePercent(parseFloat(e.target.value) || 0)}
+                                        sx={{width: 150}}
+                                        InputProps={{ 
+                                            endAdornment: <span>%</span>,
+                                            inputProps: {min: 0, max: 100, step: 0.1}
+                                        }}
+                                    />
+                                )}
+                                
+                                {/* 顯示輔修修煉速度 */}
+                                {purpleFurnaceEnabled && purpleFurnacePercent > 0 && (
+                                    <Typography variant="body2" color="secondary">
+                                        輔修修煉速度: {formatNumber(purpleFurnaceSpeed)} / 周天
+                                    </Typography>
+                                )}
+                            </Stack>
+                        </Grid>
+            
+                        {/* 右側 - 逆塵珠 */}
+                            <Grid item xs={12} md={6}>
+                                <Stack spacing={2} alignItems="center">
+                                    <FormControlLabel
+                                        control={<Checkbox checked={nichenzhuEnabled} onChange={(e, v) => setNichenzhuEnabled(v)} />}
+                                        label="逆塵珠"
+                                        sx={{width: "100%", justifyContent: "center"}}
+                                    />
+            
+                                    {nichenzhuEnabled && (
+                                        <>
+                                            {/* 星級顯示 */}
+                                            <Rating
+                                                disabled={!nichenzhuEnabled}
+                                                value={nichenzhuStars}
+                                                onChange={(e, v) => setNichenzhuStars(v === null ? 0 : v)}
+                                                min={0} max={5} size="large"
+                                            />
+                    
+                                            {/* 能量信息 */}
+                                            <Stack spacing={1} alignItems="center">
+                                                <Typography variant="body2" color="textSecondary">
+                                                    能量上限: {nichenzhuEnergyMax} 點
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    恢復速度: {nichenzhuRecoveryRate} 點/道年
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    每日恢復: {Math.round(nichenzhuRecoveryRate * 96)} 點/天                                                    </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    每週天恢復: {(nichenzhuRecoveryRate * (8/15)).toFixed(2)} 點/週天
+                                                </Typography>
+                                            </Stack>
+                                                    
+                                            {/* 幻化功能 */}
+                                            <FormControlLabel
+                                                control={<Checkbox checked={nichenzhuTransform} onChange={(e, v) => setNichenzhuTransform(v)} size="small" />}
+                                                label="幻化" disabled={!nichenzhuEnabled}
+                                            />
+                            
+                                            {/* 能量消耗 */}                                                    <Typography variant="caption" color="textSecondary">
+                                            消耗: {nichenzhuEnergyCost}點/次
+                                        </Typography>
+                 
+                                        {/* 每日使用次數 */}                                            <Typography variant="body2" color="textSecondary">
+                                            每日可使用: {Math.floor((nichenzhuRecoveryRate * 96) / nichenzhuEnergyCost)} 次
+                                       </Typography>                                                </>
+                                        )}
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+                        </AccordionDetails>
+                    </Accordion>
+             </Box>
 
         <Stack spacing={1}>
             <Typography variant={isMobile ? "h6" : "h5"}>
-              修煉速度: {Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * 100) / 100} / 周天            
+               修煉速度: {Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * 100) / 100} / 周天            
             </Typography>
+         {purpleFurnaceEnabled && purpleFurnacePercent > 0 && (
+            <Typography variant={isMobile ? "h6" : "h5"} color="secondary">
+               輔修修煉速度: {formatNumber(purpleFurnaceSpeed)} / 周天
+            </Typography>
+         )}
 
             <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
                 {formatNumber(finalSpeed)}
@@ -1278,6 +1753,7 @@ export default function ExpCounter() {
                                 <Checkbox checked={stopType === 1} sx={{p: 0}}/>
                                 <Typography>到達時間後停止</Typography>
                             </Stack>
+                            
                         </AccordionSummary>
                         <AccordionDetails>
                             <OutlinedInput
@@ -1295,6 +1771,7 @@ export default function ExpCounter() {
             </Dialog>
 
         </Stack>
+        {finalResults && <ResultsPanel results={finalResults} />}
 
         {record.length !== 0 && <DataDisplay
             final={final}
@@ -1312,5 +1789,6 @@ export default function ExpCounter() {
         </Accordion>
 
 
-    </Stack>);
+    </Stack>
+    );
 }
