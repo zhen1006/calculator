@@ -1,5 +1,3 @@
-
-
 // 基礎配置常數
 const GAME_CONSTANTS = {
   EMPTY_TIER: [[], [], [], []], // 空境界模板
@@ -27,7 +25,7 @@ const CULTIVATION_LEVELS = [
   { id: 0, name: "前期" },
   { id: 1, name: "中期" },
   { id: 2, name: "後期" },
-  { id: 3, name: "特殊" } // 特殊階段
+  { id: 3, name: "特殊" }
 ];
 
 // 修煉進度配置
@@ -39,17 +37,15 @@ const CULTIVATION_PROCESSES = [
 
 // 經驗值配置 - 按境界組織
 const EXPERIENCE_DATA = [
-  // 築基期
   {
     tier: 0,
     levels: [
-      [12376, 15624],                          // 前期
-      [15708, 19873, 23919],                   // 中期
-      [36180, 45426, 55074, 64320],            // 後期
-      []                                       // 特殊
+      [12376, 15624],
+      [15708, 19873, 23919],
+      [36180, 45426, 55074, 64320],
+      []
     ]
   },
-  // 結丹期
   {
     tier: 1,
     levels: [
@@ -59,7 +55,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-  // 元嬰期
   {
     tier: 2,
     levels: [
@@ -69,7 +64,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-  // 化神期
   {
     tier: 3,
     levels: [
@@ -79,7 +73,6 @@ const EXPERIENCE_DATA = [
       [],
     ]
   },
-    // 返虛期
   {
     tier: 4,
     levels: [
@@ -89,7 +82,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-    // 合體期
   {
     tier: 5,
     levels: [
@@ -99,7 +91,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-    // 大乘期
   {
     tier: 6,
     levels: [
@@ -109,7 +100,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-    // 渡劫期
   {
     tier: 7,
     levels: [
@@ -119,7 +109,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-    // 真仙期
   {
     tier: 8,
     levels: [
@@ -129,7 +118,6 @@ const EXPERIENCE_DATA = [
        []
     ]
   },
-    // 金仙期
   {
     tier: 9,
     levels: [
@@ -139,7 +127,6 @@ const EXPERIENCE_DATA = [
       []
     ]
   },
-  // 太乙期
   {
     tier: 10,
     levels: [
@@ -152,22 +139,34 @@ const EXPERIENCE_DATA = [
 ];
 
 // 納靈石系統配置
-const STONE_SYSTEM = {
+export const STONE_SYSTEM = {
   types: [
-    { id: 0, name: "無", color: "black", effectValue: 0 },
-    { id: 1, name: "下", color: "grey", effectValue: 10 },
-    { id: 2, name: "中", color: "lightgreen", effectValue: 13 },
-    { id: 3, name: "上", color: "lightblue", effectValue: 16 },
-    { id: 4, name: "極", color: "magenta", effectValue: 20 },
-    { id: 5, name: "仙", color: "gold", effectValue: 24 },
-    { id: 6, name: "超越仙", color: "red", effectValue: 28 }
-  ],
-  getStone(name) {
-    return this.types.find(stone => stone.name === name);
-  },
-  getEffectValues() {
-    return this.types.map(stone => stone.effectValue);
-  }
+    { id: 0, name: "無", color: "black", absorption: 0 },
+    { id: 1, name: "下品", color: "grey", absorption: 0.10 },
+    { id: 2, name: "中品", color: "lightgreen", absorption: 0.13 },
+    { id: 3, name: "上品", color: "lightblue", absorption: 0.16 },
+    { id: 4, name: "極品", color: "magenta", absorption: 0.20 },
+    { id: 5, name: "仙品", color: "gold", absorption: 0.24 },
+    { id: 6, name: "超越仙品", color: "red", absorption: 0.28 }
+  ]
+};
+
+// 納靈石品質（2~5星/覺醒）效果
+export const stoneQualityList = {
+  0: 0.17,  // 2星
+  1: 0.26,  // 3星
+  2: 0.36,  // 4星
+  3: 0.46,  // 5星
+  4: 0.50   // 覺醒
+};
+
+// 合道爐品質（2~5星/覺醒）
+export const furnaceQualityList = {
+  0: 0.07,  // 2星
+  1: 0.11,  // 3星
+  2: 0.15,  // 4星
+  3: 0.19,  // 5星
+  4: 0.20   // 覺醒
 };
 
 // 增益效果系統
@@ -186,13 +185,8 @@ const BUFF_SYSTEM = {
 
 // 修煉資源配置
 const CULTIVATION_RESOURCES = {
-  // 吐納數值
   breatheTechniques: [70, 565, 2606, 5837, 8400, 10500, 13407, 24877, 46378, 93300, 159000],
-  
-  // 紅果獎勵
   redFruitRewards: [0, 65000, 65000, 195000, 288000, 390000, 720000, 1260000, 2400000, 5430000, 10800000],
-  
-  // 吸收率列表
   efficiencyLevels: [
     [6.7, 8.3, 10, 10],
     [12.5, 15, 17.5, 17.5],
@@ -247,7 +241,6 @@ export const GameData = {
   divineMedicine: DIVINE_MEDICINE,
   refinementTable: REFINEMENT_TABLE,
 
-  // 工具方法
   getTierExperience(tierId) {
     return this.experience.find(exp => exp.tier === tierId)?.levels || GAME_CONSTANTS.EMPTY_TIER;
   },
@@ -260,12 +253,11 @@ export const GameData = {
 
 // 兼容舊版導出
 export const tierList = CULTIVATION_TIERS.map(t => t.name);
-export const levelList = CULTIVATION_LEVELS.slice(0, 3).map(l => l.name); // 只導出前三個階段
+export const levelList = CULTIVATION_LEVELS.slice(0, 3).map(l => l.name);
 export const processList = CULTIVATION_PROCESSES.map(p => p.name);
 export const exps = EXPERIENCE_DATA.map(t => t.levels);
 export const stone = Object.fromEntries(STONE_SYSTEM.types.map(s => [s.name, s.color]));
 export const buffs = Object.fromEntries(BUFF_SYSTEM.types.map(b => [b.name, b.color]));
-export const stoneEff = STONE_SYSTEM.getEffectValues();
 export const breatheList = [...CULTIVATION_RESOURCES.breatheTechniques, 0, 0];
 export const redFruitList = [...CULTIVATION_RESOURCES.redFruitRewards, 0, 0];
 export const effList = [...CULTIVATION_RESOURCES.efficiencyLevels, [0, 0, 0, 0], [0, 0, 0, 0]];
