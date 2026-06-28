@@ -54,10 +54,12 @@ import {
     stone,
     godBuff,
     godRegent,
-    stoneEff,
     buffs,
     chartLs,
-    breatheList, processList
+    breatheList, processList,
+    STONE_SYSTEM,
+    stoneQualityList,
+    furnaceQualityList
 } from "./../data/data.js";
 import {timeString, formatNumber} from "../data/functions.js";
 import _ from "lodash";
@@ -69,7 +71,6 @@ const ColorButton = styled(Button)(({theme}) => ({
         backgroundColor: pink[400],
     },
 }));
-
 
 export default function ExpCounter() {
 
@@ -83,9 +84,8 @@ export default function ExpCounter() {
             exp,
             othersAir,
             voidAir,
-            upT,
-            upRate,
-            buff,
+            prevBuff,
+            currentBuff,
             breatheTime,
             breatheBuf,
             medAmount,
@@ -98,13 +98,34 @@ export default function ExpCounter() {
             tableControl,
             tableChance,
             tableTierToStop,
-            stoneLV,
+            stoneLevel,
+            stoneQuality,
+            stoneForgeEnabled,
+            stoneForgeAbsorption,
+            stoneForgeMultiplierEnabled,
+            stoneForgeMultiplier,
+            stoneSealEnabled,
+            stoneSealPercent,
+            furnaceEnabled,
+            furnaceQuality,
+            furnaceForge1Enabled,
+            furnaceForge1Percent,
+            furnaceForge2Enabled,
+            furnaceForge2Multiplier,
             gods,
             godDoubles,
             dir,
             subProcess,
             thirdProcess,
-            yaojie,
+            fenqiEnabled,
+            fenqiBonus,
+            yaojieEnabled,
+            yaojieBonus,
+            wanjieTianyuanEnabled,
+            wanjieTianyuanBonus,
+            nichenzhuEnabled,
+            nichenzhuStars,
+            nichenzhuTransform,
         };
         localStorage.setItem(`data ${i}`, JSON.stringify(saveList));
         toast.success("Saved!")
@@ -124,9 +145,8 @@ export default function ExpCounter() {
                 air: setOthersAir,
                 othersAir: setOthersAir,
                 voidAir: setVoidAir,
-                upT: setUpT,
-                upRate: setUpRate,
-                buff: setBuff,
+                prevBuff: setPrevBuff,
+                currentBuff: setCurrentBuff,
                 breatheTime: setBreatheTime,
                 breatheBuf: setBreatheBuf,
                 medAmount: setMedAmount,
@@ -139,16 +159,41 @@ export default function ExpCounter() {
                 tableControl: setTableControl,
                 tableChance: setTableChance,
                 tableTierToStop: setTableTierToStop,
-                stoneLV: setStoneLV,
+                stoneLevel: setStoneLevel,
+                stoneQuality: setStoneQuality,
+                stoneForgeEnabled: setStoneForgeEnabled,
+                stoneForgeAbsorption: setStoneForgeAbsorption,
+                stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
+                stoneForgeMultiplier: setStoneForgeMultiplier,
+                stoneSealEnabled: setStoneSealEnabled,
+                stoneSealPercent: setStoneSealPercent,
+                furnaceEnabled: setFurnaceEnabled,
+                furnaceQuality: setFurnaceQuality,
+                furnaceForge1Enabled: setFurnaceForge1Enabled,
+                furnaceForge1Percent: setFurnaceForge1Percent,
+                furnaceForge2Enabled: setFurnaceForge2Enabled,
+                furnaceForge2Multiplier: setFurnaceForge2Multiplier,
                 gods: setGods,
                 godDoubles: setGodDoubles,
                 dir: setDir,
                 subProcess: setSubProcess,
                 thirdProcess: setThirdProcess,
-                yaojie: setYaojie,
+                fenqiEnabled: setFenqiEnabled,
+                fenqiBonus: setFenqiBonus,
+                yaojieEnabled: setYaojieEnabled,
+                yaojieBonus: setYaojieBonus,
+                wanjieTianyuanEnabled: setWanjieTianyuanEnabled,
+                wanjieTianyuanBonus: setWanjieTianyuanBonus,
+                nichenzhuEnabled: setNichenzhuEnabled,
+                nichenzhuStars: setNichenzhuStars,
+                nichenzhuTransform: setNichenzhuTransform,
             };
 
-            Object.entries(setters).forEach(([key, setter]) => setter(data[key] || 0));
+            Object.entries(setters).forEach(([key, setter]) => {
+                if (data[key] !== undefined) {
+                    setter(data[key]);
+                }
+            });
             toast.success("Loaded!")
         }
     };
@@ -186,58 +231,66 @@ export default function ExpCounter() {
     }
 
     const calc = (mainP, subP = {}, thirdP = {}) => {   
-    let log = new Set();
-    let vd = 0;
-    let records = [];
-    let sum = {
-        base: 0, extra: 0, breathe: 0, med: 0, table: 0, stone: 0, god: 0,
-    };
-    let godEnergy = [0, 0, 0];
-    let chargeTime = 0;
-    let fruitAmount = tableCount;
-    let counter = {
-        breathe: 0, med: [0, 0, 0, 0, 0, 0], chance: 0, doubles: 0, eat: 0,
-    }
-    let reachDays = {};
-    let gods1 = JSON.parse(JSON.stringify(gods));
-    let gains = 0;
-    let tb = 0;
-    let inc = 0;
-    let tableCanEat = false;
-    let completeBuff = 0;
-
-    // 使用組件級別已經計算好的主修速度
-    const mainCultivationSpeed = speed;
-    
-    // control
-    if (!cal[6]) {
-        gods1[0][0] = -1;
-        gods1[1][0] = -1;
-    }
-    let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
-
-    let now = dir;
-    let purpleFurnaceSpeed = 0;
-    if (purpleFurnaceEnabled && purpleFurnacePercent > 0) {
-        purpleFurnaceSpeed = mainCultivationSpeed * (purpleFurnacePercent / 100);
-    }
-    let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
-    let nichenzhuTotalGain = 0;
-    let nichenzhuUseCount = 0;
-    let dailyNichenzhuUses = {};
-
-    while (true) {
-        vd += 1;
-        chargeTime += 8;
-            
-        if (chargeTime >= 900) {
-            chargeTime -= 900;
-            // god regent
-            godEnergy[0] += godRegent[gods1[0][0]] || 0;
-            godEnergy[1] += godRegent[gods1[1][0]] || 0;
+        let log = new Set();
+        let vd = 0;
+        let records = [];
+        let sum = {
+            base: 0, extra: 0, breathe: 0, med: 0, table: 0, stone: 0, god: 0,
+        };
+        let godEnergy = [0, 0, 0];
+        let chargeTime = 0;
+        let fruitAmount = tableCount;
+        let counter = {
+            breathe: 0, med: [0, 0, 0, 0, 0, 0], chance: 0, doubles: 0, eat: 0,
         }
+        let reachDays = {};
+        let gods1 = JSON.parse(JSON.stringify(gods));
+        let gains = 0;
+        let tb = 0;
+        let inc = 0;
+        let tableCanEat = false;
+        let completeBuff = 0;
 
-            // check if can eat
+        if (!cal[6]) {
+            gods1[0][0] = -1;
+            gods1[1][0] = -1;
+        }
+        let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
+
+        let now = dir;
+        
+        let purpleFurnaceSpeed = 0;
+        if (furnaceEnabled) {
+            const quality = furnaceQualityList[furnaceQuality] || 0;
+            const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+            const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+            const totalBonus = (quality + forge1) * forge2;
+            purpleFurnaceSpeed = speed * totalBonus;
+        }
+        
+        let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
+        let nichenzhuTotalGain = 0;
+        let nichenzhuUseCount = 0;
+        let dailyNichenzhuUses = {};
+
+        const checkIsPerfect = (tier, level, process, exp) => {
+            if (level !== 2) return false;
+            const tierExpData = exps[tier]?.[2];
+            if (!tierExpData) return false;
+            const totalExp = tierExpData.reduce((a, b) => a + b, 0);
+            const currentExp = tierExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+            return currentExp >= totalExp;
+        };
+
+        while (true) {
+            vd += 1;
+            chargeTime += 8;
+            
+            if (chargeTime >= 900) {
+                chargeTime -= 900;
+                godEnergy[0] += godRegent[gods1[0][0]] || 0;
+                godEnergy[1] += godRegent[gods1[1][0]] || 0;
+            }
 
             if ((tableType === 0 || (tableStopType ? Math.floor(vd / 10800) >= tableTime : _.every([PS[now].tier, PS[now].level, PS[now].process, PS[now].exp], (n, i) => n >= Object.values(tableTierToStop)[i])) && tableType === 1) && cal[4] && !tableCanEat) {
                 tableCanEat = true;
@@ -246,36 +299,75 @@ export default function ExpCounter() {
                 sum.table += gains;
                 fruitAmount = 0;
             }
+            
             let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
-            let speed1 = calcAir * (customEffective === false ? 
-                ((effList[PS[0]?.tier]?.[PS[0]?.level] || 0) / 100) : 
-                customEffective / 100) * yaojieMul;
+            
+            const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+            
+            let fenqiMult = 1;
+            if (fenqiEnabled && fenqiBonus > 0) {
+                fenqiMult = 1 + (fenqiBonus / 100);
+            }
+            let wanjieMult = 1;
+            if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
+                wanjieMult = 1 + (wanjieTianyuanBonus / 100);
+            }
+            let yaojieMult = 1;
+            if (yaojieEnabled && yaojieBonus > 0) {
+                yaojieMult = 1 + (yaojieBonus / 100);
+            }
+            const totalMult = fenqiMult * wanjieMult * yaojieMult;
 
-            let extra = calcAir * ((
-                (customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective)
-                + (PS[0]?.level < 1 && (buff === 2) ? 20 : 0)
-                + (PS[0]?.level < 2 && (buff === 3) ? 40 : 0)) / 100)
-                * (PS[0]?.level < upT || (PS[0]?.tier < PS[0]?.tier && upT !== 0) ? upRate / 100 : 0) * yaojieMul;
-                extra += calcAir * (PS[0].level < 1 && buff === 2 ? 20 : 0) / 100 * yaojieMul; 
-                extra += calcAir * (PS[now].level < 2 && buff === 3 ? 40 : 0) / 100 * yaojieMul; 
-                extra += calcAir * completeBuff * (PS[now].tier === PS[0].tier) / 100 * yaojieMul;
+            let perfectionBonusInner = 0;
+            let currentPerfectionBonusInner = 0;
+            const mainLevelInner = PS[0]?.level;
+            const mainTierInner = PS[0]?.tier;
+            const subTierInner = PS[1]?.tier;
+            const subLevelInner = PS[1]?.level;
 
-            let baseStoneEffect = stoneEff[stoneLV];
+            const mainIsPerfect = checkIsPerfect(
+                PS[0]?.tier, 
+                PS[0]?.level, 
+                PS[0]?.process, 
+                PS[0]?.exp
+            );
 
-            // 鍛靈加成：在原始基礎上增加
-            if (stoneForgeEnabled) {
-              baseStoneEffect += stoneForgePercent;
+            if (mainIsPerfect) {
+                if (currentBuff === 1) {
+                    if (subTierInner === mainTierInner - 1 && subLevelInner >= 1 && subLevelInner < 3) {
+                        currentPerfectionBonusInner = 20;
+                    }
+                } else if (currentBuff === 2) {
+                    if (subTierInner === mainTierInner) {
+                        currentPerfectionBonusInner = 20;
+                    }
+                } else if (currentBuff === 3) {
+                    if (subTierInner === mainTierInner && subLevelInner === 3 && checkIsPerfect(subTierInner, subLevelInner, PS[1]?.process, PS[1]?.exp)) {
+                        currentPerfectionBonusInner = 40;
+                    }
+                }
             }
 
-            let st1 = (speed1 * cal[0] + extra * cal[1]) * baseStoneEffect / 100;
+            const totalPerfectionBonusInner = perfectionBonusInner + currentPerfectionBonusInner;
+
+            const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
+            const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
+
+            const stoneType = STONE_SYSTEM.types[stoneLevel];
+            const baseAbsorption = stoneType ? stoneType.absorption : 0;
+
+            const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+            const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+            const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+            const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+
+            const totalStoneMultiplier = baseAbsorption
+                * (1 + qualityBonus + forge1Bonus)
+                * forge2Multiplier
+                * (1 + sealBonus);
+
+            let st1 = (speed1 + extra) * totalStoneMultiplier;
             st1 *= cal[5];
-
-            // 玄黃納靈印在這個基礎上再計算
-            st1 *= (1 + (stoneSealEnabled ? stoneSealPercent / 100 : 0))* (1 + (stoneSeal2Enabled ? stoneSeal2Percent / 100 : 0));
-            
-            speed1 *= cal[0];
-            extra *= cal[1];
-
 
             inc += speed1 + extra + st1;
 
@@ -283,12 +375,11 @@ export default function ExpCounter() {
             sum.extra += extra;
             sum.stone += st1;
             
-            if (purpleFurnaceEnabled && purpleFurnacePercent > 0) {
-                PS[1].exp += purpleFurnaceSpeed; // 直接為輔修添加經驗
+            if (furnaceEnabled) {
+                PS[1].exp += purpleFurnaceSpeed;
             }
 
             if (vd % 10800 === 0) {
-                // god
                 godEnergy[0] += gods1[0][0] < 0 ? 0 : 100;
                 godEnergy[1] += gods1[1][0] < 0 ? 0 : 200;
                 counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
@@ -313,48 +404,41 @@ export default function ExpCounter() {
                     sum.god += gods1[0][1] * 10000;
                     inc += gods1[0][1] * 10000;
                 }
-            if (nichenzhuEnabled) {
-
-                const dailyRecovery = nichenzhuConfig[nichenzhuStars].dailyRecovery || 100;
-                nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + dailyRecovery);
-
-                const currentDay = Math.floor(vd / 10800);
-                dailyNichenzhuUses[currentDay] = 0;
                 
-                log.add(`${timeString(vd * 8)}: 逆塵珠每日恢復 ${dailyRecovery} 能量，當前: ${nichenzhuEnergy}/${nichenzhuConfig[nichenzhuStars].maxEnergy}`);
-            }
-
-            if (nichenzhuEnabled && nichenzhuEnergy >= nichenzhuEnergyCost) {
-                const currentDay = Math.floor(vd / 10800);
-                const maxDailyUses = 20;
-    
-                const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
-                const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
-                const actualUses = Math.min(availableUses, remainingDailyUses);
-    
-                if (actualUses > 0) {
-                    const zhoutianMultiplier = nichenzhuStars >= 1 ? 1200 : 1000;
-                    
-                    const nichenzhuGainPerUse = mainCultivationSpeed * zhoutianMultiplier;
-                    const totalGain = actualUses * nichenzhuGainPerUse;
-        
-                    nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
-                    nichenzhuUseCount += actualUses;
-                    PS[1].exp += totalGain;
-                    nichenzhuTotalGain += totalGain;
-                    
-                    dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
-                                
-                    log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（相當於${zhoutianMultiplier}周天主修修煉）`);
+                if (nichenzhuEnabled) {
+                    const dailyRecovery = nichenzhuConfig[nichenzhuStars].dailyRecovery || 100;
+                    nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + dailyRecovery);
+                    const currentDay = Math.floor(vd / 10800);
+                    dailyNichenzhuUses[currentDay] = 0;
+                    log.add(`${timeString(vd * 8)}: 逆塵珠每日恢復 ${dailyRecovery} 能量，當前: ${nichenzhuEnergy}/${nichenzhuConfig[nichenzhuStars].maxEnergy}`);
                 }
-            }                        
 
-                // breathe
+                if (nichenzhuEnabled && nichenzhuEnergy >= nichenzhuEnergyCost) {
+                    const currentDay = Math.floor(vd / 10800);
+                    const maxDailyUses = 20;
+                    const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
+                    const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
+                    const actualUses = Math.min(availableUses, remainingDailyUses);
+                    if (actualUses > 0) {
+                        let zhoutianCount = 100;
+                        if (nichenzhuStars >= 1) {
+                            zhoutianCount = 120;
+                        }
+                        const nichenzhuGainPerUse = purpleFurnaceSpeed * zhoutianCount;
+                        const totalGain = actualUses * nichenzhuGainPerUse;
+                        nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
+                        nichenzhuUseCount += actualUses;
+                        PS[1].exp += totalGain;
+                        nichenzhuTotalGain += totalGain;
+                        dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
+                        log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${zhoutianCount}周天/次）`);
+                    }
+                }
+
                 inc += breatheSpeed;
                 sum.breathe += breatheSpeed;
                 counter.breathe += breatheTime;
 
-                // med
                 [...Array(5).keys()].forEach((i) => {
                     let med = cal[3] * medExp[i] * medAmount[i] * 10000;
                     inc += med;
@@ -362,12 +446,9 @@ export default function ExpCounter() {
                     counter.med[i] += cal[3] * medAmount[i];
                 })
 
-                // table
                 if (cal[4]) {
-
                     let day = ((new Date()).getDay() + Math.floor(vd / 10800) - 1) % 7;
                     if ([3, 5, 0].includes(day)) {
-
                         if (tableType === 0 || tableCanEat) {
                             [gains, tb, counter] = eat(tb, 3, counter);
                             inc += gains;
@@ -386,15 +467,12 @@ export default function ExpCounter() {
                             fruitAmount += am;
                         }
                     }
-
                 }
 
-                // can't continues
                 if (inc <= 0 && (!cal[4] || [2, 3].includes(tableType) || (tableType === 1 && tableStopType === 0))) {
                     alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                     break;
                 }
-
 
                 records.push(sum);
                 sum = {
@@ -407,13 +485,10 @@ export default function ExpCounter() {
                     stone: 0, 
                     god: 0
                 };
-
             }
 
             PS[now].exp += inc;
 
-
-            // upgrade tier
             if (PS[now].exp >= exps[PS[now].tier][PS[now].level][PS[now].process]) {
                 PS[now].exp -= exps[PS[now].tier][PS[now].level][PS[now].process];
                 PS[now].process += 1;
@@ -426,26 +501,23 @@ export default function ExpCounter() {
                 log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
             }
 
-            // stop done.
             if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
                 const actualDays = Math.floor(vd / 10800);
-                log.add("到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）");
+                log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
                 break;
             }
             if (stopType === 0) {
                 if (!dir) {
-                    if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) { // upgrade tier
+                    if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
                         PS[now].tier += 1;
                         PS[now].level = 0;
                     }
-
-
                     if (PS[now].level >= 3) {
                         log.add("抵達圓滿");
                         if (stopLevel === 0) break;
                     }
-                    if (now === 1 && (  // 大成
-                        PS[now].tier > PS[0].tier - 1 // check tier
+                    if (now === 1 && (
+                        PS[now].tier > PS[0].tier - 1
                         || (
                             PS[now].tier === PS[0].tier - 1
                             && PS[now].level >= 1
@@ -455,14 +527,14 @@ export default function ExpCounter() {
                         completeBuff = 20;
                         if (stopLevel === 1) break;
                     }
-                    if (now === 1 && (  // 完美
+                    if (now === 1 && (
                         PS[now].tier >= PS[0].tier
                     )) {
                         log.add("抵達完美");
                         completeBuff = 20;
                         if (stopLevel === 2) break;
                     }
-                    if (now === 1 && (  // 半步
+                    if (now === 1 && (
                         PS[now].tier >= PS[0].tier
                         && PS[now].level >= 3
                     )) {
@@ -470,67 +542,63 @@ export default function ExpCounter() {
                         completeBuff = 40;
                         if (stopLevel === 3) break;
                     }
-                    if (now === 2 && (  // 準
+                    if (now === 2 && (
                         PS[now].tier >= PS[0].tier
                         && PS[now].level >= 3
                     )) {
-                        log.add("抵達準");``
+                        log.add("抵達準");
                         break;
                     }
-
-                    if (PS[now].level >= 3 && now === 0) { // 開始修練輔修
+                    if (PS[now].level >= 3 && now === 0) {
                         log.add("開始修練輔修");
                         now = 1;
                     }
-                    if (PS[now].level >= 3 && now === 1) { // 開始修練三修
+                    if (PS[now].level >= 3 && now === 1) {
                         log.add("開始修練三修");
                         now = 2;
                     }
-
-                } else if (PS[now].level >= 3) { // not main 修
+                } else if (PS[now].level >= 3) {
                     console.log("抵達圓滿");
                     break;
                 }
-
             }
             inc = 0;
         }
-            const calculateLevelPercentage = (tier, level, process, exp) => {
-                if (level === 3) return 100; // 圓滿直接返回100%
-    
-                const levelExpData = exps[tier]?.[level];
-                if (!levelExpData || levelExpData.length === 0) return 0;
-    
-                const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
-               const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
-    
-                return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
-            };
-            const finalResults = {
-                main: {
-                    tier: PS[0].tier,
-                    level: PS[0].level,
-                    process: PS[0].process,
-                    exp: PS[0].exp,
-                    percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
-                },
-                sub: {
-                    tier: PS[1].tier,
-                    level: PS[1].level,
-                    process: PS[1].process,
-                    exp: PS[1].exp,
-                    percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
-                },
-                third: {
-                    tier: PS[2].tier,
-                    level: PS[2].level,
-                    process: PS[2].process,
-                    exp: PS[2].exp,
-                    percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
-                }
-            };
-    
-                setFinalResults(finalResults);
+
+        const calculateLevelPercentage = (tier, level, process, exp) => {
+            if (level === 3) return 100;
+            const levelExpData = exps[tier]?.[level];
+            if (!levelExpData || levelExpData.length === 0) return 0;
+            const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+            const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+            return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+        };
+
+        const finalResults = {
+            main: {
+                tier: PS[0].tier,
+                level: PS[0].level,
+                process: PS[0].process,
+                exp: PS[0].exp,
+                percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
+            },
+            sub: {
+                tier: PS[1].tier,
+                level: PS[1].level,
+                process: PS[1].process,
+                exp: PS[1].exp,
+                percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
+            },
+            third: {
+                tier: PS[2].tier,
+                level: PS[2].level,
+                process: PS[2].process,
+                exp: PS[2].exp,
+                percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
+            }
+        };
+
+        setFinalResults(finalResults);
         setLogs(Array.from(log));
         setFullTime(vd);
         setRecord(records);
@@ -554,9 +622,10 @@ export default function ExpCounter() {
     const [exp, setExp] = useState(0);
     const [othersAir, setOthersAir] = useState(0);
     const [voidAir, setVoidAir] = useState(0);
-    const [upT, setUpT] = useState(0);
-    const [upRate, setUpRate] = useState(20);
-    const [buff, setBuff] = useState(0);
+    
+    const [prevBuff, setPrevBuff] = useState(0);
+    const [currentBuff, setCurrentBuff] = useState(0);
+    
     const [breatheTime, setBreatheTime] = useState(0);
     const [breatheBuf, setBreatheBuf] = useState(100);
     const [medAmount, setMedAmount] = useState([0, 0, 0, 0, 0, 0]);
@@ -569,33 +638,48 @@ export default function ExpCounter() {
     const [tableControl, setTableControl] = useState([false, false, true]);
     const [tableChance, setTableChance] = useState(1);
     const [tableTierToStop, setTableTierToStop] = useState({tier: 4, level: 0, process: 0, exp: 0});
-    const [stoneLV, setStoneLV] = useState(0);
+    
+    const [stoneLevel, setStoneLevel] = useState(6);
+    const [stoneQuality, setStoneQuality] = useState(3);
+    const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
+    const [stoneForgeAbsorption, setStoneForgeAbsorption] = useState(4.5);
+    const [stoneForgeMultiplierEnabled, setStoneForgeMultiplierEnabled] = useState(false);
+    const [stoneForgeMultiplier, setStoneForgeMultiplier] = useState(1.15);
     const [stoneSealEnabled, setStoneSealEnabled] = useState(false);
     const [stoneSealPercent, setStoneSealPercent] = useState(0);
-    const [stoneSeal2Enabled, setStoneSeal2Enabled] = useState(false);
-    const [stoneSeal2Percent, setStoneSeal2Percent] = useState(0);
-    const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
-    const [stoneForgePercent, setStoneForgePercent] = useState(0);
-    const [purpleFurnaceEnabled, setPurpleFurnaceEnabled] = useState(false);
-    const [purpleFurnacePercent, setPurpleFurnacePercent] = useState(0);
+
+    const [furnaceEnabled, setFurnaceEnabled] = useState(false);
+    const [furnaceQuality, setFurnaceQuality] = useState(3);
+    const [furnaceForge1Enabled, setFurnaceForge1Enabled] = useState(false);
+    const [furnaceForge1Percent, setFurnaceForge1Percent] = useState(6.75);
+    const [furnaceForge2Enabled, setFurnaceForge2Enabled] = useState(false);
+    const [furnaceForge2Multiplier, setFurnaceForge2Multiplier] = useState(1.18);
+
     const [nichenzhuEnabled, setNichenzhuEnabled] = useState(false);
     const [nichenzhuStars, setNichenzhuStars] = useState(0);
     const [nichenzhuTransform, setNichenzhuTransform] = useState(false);
     const [nichenzhuDailyGain, setNichenzhuDailyGain] = useState(0);
     const [nichenzhuDailyUses, setNichenzhuDailyUses] = useState(0);
-    const [nichenzhuEnergyCost, setNichenzhuEnergyCost] = useState(100);
+    const [nichenzhuEnergyCost, setNichenzhuEnergyCost] = useState(10);
     const [nichenzhuEnergyMax, setNichenzhuEnergyMax] = useState(200);
     const [nichenzhuRecoveryRate, setNichenzhuRecoveryRate] = useState(0);
-    const [nichenzhuCultivationMultiplier, setNichenzhuCultivationMultiplier] = useState(1.0);    
+    
     const nichenzhuConfig = {
-        0: { maxEnergy: 200, recoveryRate: 1.0, dailyRecovery: 100, costReduction: 0, cultivationBonus: 1.0 },
-        1: { maxEnergy: 300, recoveryRate: 1.3, dailyRecovery: 120, costReduction: 0, cultivationBonus: 1.2 },
-        2: { maxEnergy: 400, recoveryRate: 1.6, dailyRecovery: 140, costReduction: 0, cultivationBonus: 1.2 },
-        3: { maxEnergy: 500, recoveryRate: 2.0, dailyRecovery: 160, costReduction: 0, cultivationBonus: 1.2 },
-        4: { maxEnergy: 600, recoveryRate: 2.4, dailyRecovery: 180, costReduction: 0, cultivationBonus: 1.2 },
-        5: { maxEnergy: 700, recoveryRate: 3.0, dailyRecovery: 200, costReduction: 0.1, cultivationBonus: 1.2 }
+        0: { maxEnergy: 200, dailyRecovery: 100, starBonus: 1.0 },
+        1: { maxEnergy: 300, dailyRecovery: 120, starBonus: 1.2 },
+        2: { maxEnergy: 400, dailyRecovery: 140, starBonus: 1.2 },
+        3: { maxEnergy: 500, dailyRecovery: 160, starBonus: 1.2 },
+        4: { maxEnergy: 600, dailyRecovery: 180, starBonus: 1.2 },
+        5: { maxEnergy: 700, dailyRecovery: 200, starBonus: 1.2 }
     };
-    const [yaojie, setYaojie] = useState(false);
+
+    const [fenqiEnabled, setFenqiEnabled] = useState(false);
+    const [fenqiBonus, setFenqiBonus] = useState(20);
+    const [yaojieEnabled, setYaojieEnabled] = useState(false);
+    const [yaojieBonus, setYaojieBonus] = useState(70);
+    const [wanjieTianyuanEnabled, setWanjieTianyuanEnabled] = useState(false);
+    const [wanjieTianyuanBonus, setWanjieTianyuanBonus] = useState(67.5);
+
     const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
     const [godDoubles, setGodDoubles] = useState(true);
     const [customEffective, setCustomEffective] = useState(false);
@@ -613,65 +697,144 @@ export default function ExpCounter() {
     const air = tier === 1 ? voidAir : othersAir;
 
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
-    const effective = cal[0] * effectiveSpeed;
-    const addEfficiency = cal[1] * (effectiveSpeed + ((buff === 2) * 20 * (level < 1)) + ((buff === 3) * 40 * (level < 2))) * (upT > level ? upRate : 0) / 100 + (buff === 2) * 20 * (level < 1) + (buff === 3 || buff === 4) * 40 * (level < 2);
-    const totalEfficiency = effective + addEfficiency;
-    const yaojieEffective = yaojie ? totalEfficiency * 1.7 : totalEfficiency;
-    const yaojieMul = yaojie ? 1.7 : 1;
-    const speed = air * ((effective + addEfficiency) / 100) * yaojieMul; 
+
+    const checkIsPerfect = (tier, level, process, exp) => {
+        if (level !== 2) return false;
+        const tierExpData = exps[tier]?.[2];
+        if (!tierExpData) return false;
+        const totalExp = tierExpData.reduce((a, b) => a + b, 0);
+        const currentExp = tierExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+        return currentExp >= totalExp;
+    };
+
+    const isMainPerfect = checkIsPerfect(tier, level, process, exp);
+
+    const mainTier = tier;
+    const mainLevel = level;
+    const subTier = subProcess.tier;
+    const subLevel = subProcess.level;
+
+    let perfectionBonus = 0;
+    if (!isMainPerfect) {
+        if (prevBuff === 2 && mainLevel === 0) {
+            perfectionBonus = 20;
+        } else if (prevBuff === 3 && (mainLevel === 0 || mainLevel === 1)) {
+            perfectionBonus = 40;
+        }
+    }
+
+    let currentPerfectionBonus = 0;
+    if (isMainPerfect) {
+        if (currentBuff === 1) {
+            if (subTier === mainTier - 1 && subLevel >= 1 && subLevel < 3) {
+                currentPerfectionBonus = 20;
+            }
+        } else if (currentBuff === 2) {
+            if (subTier === mainTier) {
+                currentPerfectionBonus = 20;
+            }
+        } else if (currentBuff === 3) {
+            if (subTier === mainTier && subLevel === 3 && checkIsPerfect(subTier, subLevel, subProcess.process, subProcess.exp)) {
+                currentPerfectionBonus = 40;
+            }
+        }
+    }
+
+    const totalPerfectionBonus = perfectionBonus + currentPerfectionBonus;
+
+    let fenqiMultiplier = 1;
+    if (fenqiEnabled && fenqiBonus > 0) {
+        fenqiMultiplier = 1 + (fenqiBonus / 100);
+    }
+
+    let yaojieMultiplier = 1;
+    if (yaojieEnabled && yaojieBonus > 0) {
+        yaojieMultiplier = 1 + (yaojieBonus / 100);
+    }
+
+    let wanjieMultiplier = 1;
+    if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
+        wanjieMultiplier = 1 + (wanjieTianyuanBonus / 100);
+    }
+
+    const totalMultiplier = fenqiMultiplier * wanjieMultiplier * yaojieMultiplier;
+
+    const baseEfficiency = effectiveSpeed + totalPerfectionBonus;
+    const finalEfficiency = baseEfficiency * totalMultiplier;
+
+    const speed = air * (finalEfficiency / 100);
+
+    const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
+    const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
+
+    const extraEfficiency = finalEfficiency - effectiveSpeed;
+
     const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
     const godDay = [cal[6] * Math.round(((96 * godRegent[gods[0][0]] + 100) / 100 + (gods[0][0] === 5 && godDoubles ? ((96 * godRegent[gods[0][0]] + 100) / 100 * 0.15) : 0)) * 100) / 100, cal[6] * Math.round(((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) + (gods[1][0] === 5 && godDoubles ? ((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) * 0.15) : 0)) * 100) / 100]
     const godSpeed = [Math.round(godDay[0] * gods[0][1] * 10000 * 100) / 100 || 0, Math.round(godDay[1] * gods[0][1] * 10000 * 100) / 100 || 0];
-    const baseStoneEffect = stoneEff[stoneLV] + (stoneForgeEnabled ? stoneForgePercent : 0);
-    const stoneSpeed = cal[5] * speed * (baseStoneEffect / 100) * (1 + (stoneSealEnabled ? stoneSealPercent / 100 : 0));
-    const purpleFurnaceSpeed = purpleFurnaceEnabled && purpleFurnacePercent > 0 ? Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * (purpleFurnacePercent / 100) * 100) / 100 : 0;
-        const config = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars] : { maxEnergy: 0, recoveryRate: 0 };
-    const baseCost = 100;
-    const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
-    const transformReduction = nichenzhuTransform ? 0.1 : 0;
-    useEffect(() => {
-    if (nichenzhuEnabled) {
-        const config = nichenzhuConfig[nichenzhuStars];
-        
-        // 计算能量消耗
-        const baseCost = 100;
-        const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
-        const transformReduction = nichenzhuTransform ? 0.1 : 0;
-        const energyCost = Math.floor(baseCost * (1 - starReduction) * (1 - transformReduction));
-        
-        // 使用每日恢复量而不是恢复速率
-        const dailyRecovery = config.dailyRecovery;
-        const dailyUses = Math.floor(dailyRecovery / energyCost);
-        
-        setNichenzhuEnergyCost(energyCost);
-        setNichenzhuEnergyMax(config.maxEnergy);
-        setNichenzhuRecoveryRate(config.recoveryRate);
-        
-        const cultivationMultiplier = nichenzhuStars >= 1 ? 1.2 : 1.0;
-        const baseGainPerUse = speed * cultivationMultiplier;
-        const dailyGain = baseGainPerUse * dailyUses;
-        
-        setNichenzhuDailyUses(dailyUses);
-        setNichenzhuDailyGain(dailyGain);
-    } else {        
-        setNichenzhuEnergyCost(100);
-        setNichenzhuEnergyMax(200);
-        setNichenzhuRecoveryRate(0);
-        setNichenzhuDailyUses(0);
-        setNichenzhuDailyGain(0);
-    }
-}, [nichenzhuEnabled, nichenzhuStars, nichenzhuTransform, speed]);
+    
+    const stoneTypeDisplay = STONE_SYSTEM.types[stoneLevel];
+    const baseAbsorptionDisplay = stoneTypeDisplay ? stoneTypeDisplay.absorption : 0;
+    const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+    const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+    const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+    const sealBonusDisplay = stoneSealEnabled ? stoneSealPercent / 100 : 0;
 
-    // final zone
-    const finalSpeed = Math.round(air * effective / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
-    const finalAdd   = Math.round(air * (addEfficiency) / 100 * yaojieMul / 8 * 60 * 60 * 24 * 100) / 100;
+    const totalStoneMultiplierDisplay = baseAbsorptionDisplay
+        * (1 + qualityBonusDisplay + forge1BonusDisplay)
+        * forge2MultiplierDisplay
+        * (1 + sealBonusDisplay);
+
+    const finalStone = Math.round((air * (finalEfficiency / 100)) * totalStoneMultiplierDisplay / 8 * 60 * 60 * 24 * 100) / 100;
+
+    const purpleFurnaceSpeedDisplay = furnaceEnabled ? (() => {
+        const quality = furnaceQualityList[furnaceQuality] || 0;
+        const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+        const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+        const totalBonus = (quality + forge1) * forge2;
+        return Math.round(speed * totalBonus * 100) / 100;
+    })() : 0;
+
+    useEffect(() => {
+        if (nichenzhuEnabled) {
+            const config = nichenzhuConfig[nichenzhuStars];
+            let energyCost = 10;
+            if (nichenzhuStars === 5) {
+                energyCost = 9;
+            }
+            if (nichenzhuTransform) {
+                energyCost = Math.max(8, energyCost - 1);
+            }
+            
+            const dailyRecovery = config.dailyRecovery;
+            const dailyUses = Math.floor(dailyRecovery / energyCost);
+            
+            setNichenzhuEnergyCost(energyCost);
+            setNichenzhuEnergyMax(config.maxEnergy);
+            setNichenzhuRecoveryRate(dailyRecovery);
+            setNichenzhuDailyUses(dailyUses);
+            
+            const zhoutianCount = nichenzhuStars >= 1 ? 120 : 100;
+            const baseGainPerUse = purpleFurnaceSpeedDisplay * zhoutianCount;
+            const dailyGain = baseGainPerUse * dailyUses;
+            setNichenzhuDailyGain(dailyGain);
+        } else {
+            setNichenzhuEnergyCost(10);
+            setNichenzhuEnergyMax(200);
+            setNichenzhuRecoveryRate(0);
+            setNichenzhuDailyUses(0);
+            setNichenzhuDailyGain(0);
+        }
+    }, [nichenzhuEnabled, nichenzhuStars, nichenzhuTransform, purpleFurnaceSpeedDisplay]);
+
+    const finalSpeed = Math.round(baseSpeed * 100) / 100;
+    const finalAdd = Math.round(extraSpeed * 100) / 100;
     const finalBreathe = Math.round(breatheSpeed * 100) / 100;
     const finalMed = Math.round(medSpeed * 100) / 100;
     const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
-    const finalStone = Math.round(stoneSpeed / 8 * 60 * 60 * 24 * 100) / 100;
     const finalGod = Math.round(godSpeed.reduce((a, b) => a + b) * 100) / 100
     const [logs, setLogs] = useState([]);
     const [record, setRecord] = useState([]);
@@ -685,1113 +848,812 @@ export default function ExpCounter() {
     const [stopType, setStopType] = useState(0);
     const [stopLevel, setStopLevel] = useState(0);
     const [stopTime, setStopTime] = useState(30);
+
     const ResultsPanel = ({ results }) => {
-    if (!results) return null;
-    const calculateNichenzhuValues = () => {
-    if (nichenzhuEnabled) {
-        const config = nichenzhuConfig[nichenzhuStars];
-        
-        const baseCost = 100;
-        const starReduction = nichenzhuStars === 5 ? 0.1 : 0;
-        const transformReduction = nichenzhuTransform ? 0.1 : 0;
-        const energyCost = Math.floor(baseCost * (1 - starReduction) * (1 - transformReduction));
-        const dailyEnergy = config.recoveryRate * 96;
-        const dailyUses = Math.floor(dailyEnergy / energyCost);
-        const cultivationMultiplier = nichenzhuStars >= 1 ? 1.2 : 1.0;
-        const mainCultivationSpeed = air * ((effective + addEfficiency) / 100) * yaojieMul;
-        const baseGainPerUse = mainCultivationSpeed * cultivationMultiplier;
-        const dailyGain = baseGainPerUse * dailyUses;
-        
-        return {
-            energyCost,
-            dailyUses,
-            dailyGain,
-            cultivationMultiplier,
-            maxEnergy: config.maxEnergy,
-            recoveryRate: config.recoveryRate
-        };
-    }
-    
-    return {
-        energyCost: 0,
-        dailyUses: 0,
-        dailyGain: 0,
-        cultivationMultiplier: 1.0,
-        maxEnergy: 0,
-        recoveryRate: 0
-    };
-};
+        if (!results) return null;
 
-       const formatCultivationInfo = (cultivation) => {
-        const isMaxLevel = cultivation.level === 3;
-        
-        if (isMaxLevel) {
-            return {
-                levelDisplay: "後期",
-                processDisplay: 20,
-                percentageDisplay: "100%(圓滿)",
-                isMaxLevel: true
-            };
-        }
-        const tierExpData = exps[cultivation.tier];
-        if (!tierExpData || cultivation.level >= tierExpData.length) {
-            return {
-                levelDisplay: levelList[cultivation.level] || "未知",
-                processDisplay: cultivation.process + 1,
-                percentageDisplay: `${formatNumber(0)}%`,
-                isMaxLevel: false
-            };
-        }
-        const levelExpData = tierExpData[cultivation.level];
-        if (!levelExpData || levelExpData.length === 0) {
-            return {
-                levelDisplay: levelList[cultivation.level] || "未知",
-                processDisplay: cultivation.process + 1,
-                percentageDisplay: `${formatNumber(0)}%`,
-                isMaxLevel: false
-            };
-        }
-        
-        const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
-        const accumulatedExp = levelExpData.slice(0, cultivation.process).reduce((a, b) => a + b, 0) + cultivation.exp;
-        const percentage = Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
-        let actualProcessDisplay = 1;
-        let currentExp = 0;
-        
-        for (let i = 0; i < levelExpData.length; i++) {
-            currentExp += levelExpData[i];
-            if (accumulatedExp <= currentExp) {
-                actualProcessDisplay = i + 1;
-                break;
+        const formatCultivationInfo = (cultivation) => {
+            const isMaxLevel = cultivation.level === 3;
+            if (isMaxLevel) {
+                return {
+                    levelDisplay: "後期",
+                    processDisplay: 20,
+                    percentageDisplay: "100%(圓滿)",
+                    isMaxLevel: true
+                };
             }
-        }
-
-        return {
-            levelDisplay: levelList[cultivation.level] || "未知",
-            processDisplay: actualProcessDisplay,
-            percentageDisplay: `${formatNumber(percentage)}%`,
-            isMaxLevel: false
+            const tierExpData = exps[cultivation.tier];
+            if (!tierExpData || cultivation.level >= tierExpData.length) {
+                return {
+                    levelDisplay: levelList[cultivation.level] || "未知",
+                    processDisplay: cultivation.process + 1,
+                    percentageDisplay: `${formatNumber(0)}%`,
+                    isMaxLevel: false
+                };
+            }
+            const levelExpData = tierExpData[cultivation.level];
+            if (!levelExpData || levelExpData.length === 0) {
+                return {
+                    levelDisplay: levelList[cultivation.level] || "未知",
+                    processDisplay: cultivation.process + 1,
+                    percentageDisplay: `${formatNumber(0)}%`,
+                    isMaxLevel: false
+                };
+            }
+            const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+            const accumulatedExp = levelExpData.slice(0, cultivation.process).reduce((a, b) => a + b, 0) + cultivation.exp;
+            const percentage = Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+            let actualProcessDisplay = 1;
+            let currentExp = 0;
+            for (let i = 0; i < levelExpData.length; i++) {
+                currentExp += levelExpData[i];
+                if (accumulatedExp <= currentExp) {
+                    actualProcessDisplay = i + 1;
+                    break;
+                }
+            }
+            return {
+                levelDisplay: levelList[cultivation.level] || "未知",
+                processDisplay: actualProcessDisplay,
+                percentageDisplay: `${formatNumber(percentage)}%`,
+                isMaxLevel: false
+            };
         };
-    };
 
-    const mainInfo = formatCultivationInfo(results.main);
-    const subInfo = formatCultivationInfo(results.sub);
-    const thirdInfo = formatCultivationInfo(results.third);
+        const mainInfo = formatCultivationInfo(results.main);
+        const subInfo = formatCultivationInfo(results.sub);
+        const thirdInfo = formatCultivationInfo(results.third);
 
         return (
-        <Card sx={{ mt: 2, p: 2, backgroundColor: 'rgba(0,0,0,0.1)' }}>
-            <Typography variant="h6" gutterBottom>
-                計算結果 - 境界進度
-            </Typography>
-            
-            <Grid container spacing={2}>
-                {/* 主修進度 */}
-                <Grid item xs={12} md={4}>
-                    <Card variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="primary" gutterBottom>
-                            主修進度
-                        </Typography>
-                        <Stack spacing={1}>
-                            <Typography>
-                                境界: {tierList[results.main.tier]}
-                            </Typography>
-                            <Typography>
-                                階段: {mainInfo.levelDisplay}
-                            </Typography>
-                            <Typography>
-                                重數: {mainInfo.processDisplay}重
-                            </Typography>
-                            <Typography>
-                                進度: {mainInfo.percentageDisplay}
-                            </Typography>
-                            <LinearProgress 
-                                variant="determinate" 
-                                value={mainInfo.isMaxLevel ? 100 : parseFloat(mainInfo.percentageDisplay)} 
-                                sx={{ 
-                                    mt: 1, 
-                                    height: 10, 
-                                    borderRadius: 5,
-                                    backgroundColor: mainInfo.isMaxLevel ? 'success.main' : 'primary.main'
-                                }}
-                            />
-                            {mainInfo.isMaxLevel && (
-                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
-                                    🎉 已達圓滿境界
-                                </Typography>
-                            )}
-                        </Stack>
-                    </Card>
-                </Grid>
-                
-                {/* 輔修進度 */}
-                <Grid item xs={12} md={4}>
-                    <Card variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="secondary" gutterBottom>
-                            輔修進度
-                        </Typography>
-                        <Stack spacing={1}>
-                            <Typography>
-                                境界: {tierList[results.sub.tier]}
-                            </Typography>
-                            <Typography>
-                                階段: {subInfo.levelDisplay}
-                            </Typography>
-                            <Typography>
-                                重數: {subInfo.processDisplay}重
-                            </Typography>
-                            <Typography>
-                                進度: {subInfo.percentageDisplay}
-                            </Typography>
-                            <LinearProgress 
-                                variant="determinate" 
-                                value={subInfo.isMaxLevel ? 100 : parseFloat(subInfo.percentageDisplay)} 
-                                sx={{ 
-                                    mt: 1, 
-                                    height: 10, 
-                                    borderRadius: 5,
-                                    backgroundColor: subInfo.isMaxLevel ? 'success.main' : 'secondary.main'
-                                }}
-                            />
-                            {subInfo.isMaxLevel && (
-                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
-                                    🎉 已達圓滿境界
-                                </Typography>
-                            )}
-                        </Stack>
-                    </Card>
-                </Grid>
-                
-                {/* 三修進度 */}
-                <Grid item xs={12} md={4}>
-                    <Card variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="warning.main" gutterBottom>
-                            三修進度
-                        </Typography>
-                        <Stack spacing={1}>
-                            <Typography>
-                                境界: {tierList[results.third.tier]}
-                            </Typography>
-                            <Typography>
-                                階段: {thirdInfo.levelDisplay}
-                            </Typography>
-                            <Typography>
-                                重數: {thirdInfo.processDisplay}重
-                            </Typography>
-                            <Typography>
-                                進度: {thirdInfo.percentageDisplay}
-                            </Typography>
-                            <LinearProgress 
-                                variant="determinate" 
-                                value={thirdInfo.isMaxLevel ? 100 : parseFloat(thirdInfo.percentageDisplay)} 
-                                sx={{ 
-                                    mt: 1, 
-                                    height: 10, 
-                                    borderRadius: 5,
-                                    backgroundColor: thirdInfo.isMaxLevel ? 'success.main' : 'warning.main'
-                                }}
-                            />
-                            {thirdInfo.isMaxLevel && (
-                                <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>
-                                    🎉 已達圓滿境界
-                                </Typography>
-                            )}
-                        </Stack>
-                    </Card>
-                </Grid>
-            </Grid>
-            
-            {/* 顯示詳細的經驗信息 */}
-            <Accordion sx={{ mt: 2 }}>
-                <AccordionSummary expandIcon={<ExpandMore/>}>
-                    <Typography variant="caption">詳細經驗信息</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack spacing={1}>
-                        <Typography variant="caption">
-                            主修: 境界 {tierList[results.main.tier]}, 階段 {levelList[results.main.level]}, 
-                            重數 {results.main.process + 1}, 經驗 {formatNumber(results.main.exp)} / {formatNumber(exps[results.main.tier][results.main.level][results.main.process] || 0)}
-                        </Typography>
-                        <Typography variant="caption">
-                            輔修: 境界 {tierList[results.sub.tier]}, 階段 {levelList[results.sub.level]}, 
-                            重數 {results.sub.process + 1}, 經驗 {formatNumber(results.sub.exp)} / {formatNumber(exps[results.sub.tier][results.sub.level][results.sub.process] || 0)}
-                        </Typography>
-                        <Typography variant="caption">
-                            三修: 境界 {tierList[results.third.tier]}, 階段 {levelList[results.third.level]}, 
-                            重數 {results.third.process + 1}, 經驗 {formatNumber(results.third.exp)} / {formatNumber(exps[results.third.tier][results.third.level][results.third.process] || 0)}
-                        </Typography>
-                    </Stack>
-                </AccordionDetails>
-            </Accordion>
-        </Card>
-    );
-};
-
-    return (<Stack spacing={2} sx={{my: 2}}>
-        <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
-
-        <SaveLoader
-            save={save}
-            load={load}
-            relaod={() => setReload(Math.random())}
-            value={reload}
-        />
-
-        <Stack direction="row" className={"justify-center items-center"} spacing={3}>
-            <Typography color={"textSecondary"}>修練(計算)方向</Typography>
-            <RadioGroup row value={dir} onChange={(e, v) => setDir(parseInt(v))}>
-                <FormControlLabel control={<Radio value={0}/>} label={"主修"}/>
-                <FormControlLabel control={<Radio value={1}/>} label={"輔修"}/>
-                <FormControlLabel control={<Radio value={2}/>} label={"三修"}/>
-            </RadioGroup>
-        </Stack>
-
-        <Stack spacing={1}>
-            <Stack direction={"row"} className={"items-center justify-around"}>
-                <Typography color={"textSecondary"}>主修</Typography>
-                <ExpSelector
-                    tier={tier} setTier={setTier}
-                    level={level} setLevel={setLevel}
-                    process={process} setProcess={setProcess}
-                    exp={exp} setExp={setExp}
-                    full={true}
-                    lock={false}
-                />
-            </Stack>
-            <Divider />
-            <Stack direction={"row"} className={"items-center justify-around"}>
-                <Typography color={"textSecondary"}>輔修</Typography>
-                <ExpSelector
-                    setData={setSubProcess}
-                    tier={subProcess.tier} level={subProcess.level} process={subProcess.process} exp={subProcess.exp}
-                />
-            </Stack>
-            <Divider />
-
-            <Stack direction={"row"} className={"items-center justify-around"}>
-                <Typography color={"textSecondary"}>三修</Typography>
-                <ExpSelector
-                    setData={setThirdProcess}
-                    tier={thirdProcess.tier} level={thirdProcess.level} process={thirdProcess.process} exp={thirdProcess.exp}
-                />
-            </Stack>
-
-
-        </Stack>
-
-        <Stack direction={"row"} alignItems={"center"}>
-            <Box width={"100%"}>
-
-                <LinearProgress variant={"determinate"}
-                                value={([0, ...exps[tier][level].slice(0, process)].reduce((a, b) => a + b) + exp) / exps[tier][level === 3 ? 2 : level].reduce((a, b) => a + b) * 100 + (level === 3) * 100}/>
-            </Box>
-            <Typography minWidth={125} fontSize={"small"} color={"textSecondary"}>
-
-                {tierList[tier]}
-                {levelList[level]}
-
-                {formatNumber(([0, ...exps[tier][level].slice(0, process)].reduce((a, b) => a + b) + exp) / exps[tier][level === 3 ? 2 : level].reduce((a, b) => a + b) * 100 + (level === 3) * 100)}%
-            </Typography>
-        </Stack>
-
-        <Box sx={{"*": {"*.MuiAccordionSummary-content": {justifyContent: "space-between"}}}}>
-
-            <Accordion sx={{width: "100%"}} defaultExpanded>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "white"}}}
-                >
-                    修煉速度
-                    <span>+{finalSpeed}</span>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"} spacing={2}>
-                        <TextField
-                            value={othersAir}
-                            onChange={(e) => setOthersAir(parseFloat(e.target.value))}
-                            label={"洞府靈氣"}
-                            variant="outlined"
-                            type={"number"}
-                            min={0.00}
-                            step={0.01}
-                            fullWidth
-                            helperText={"請輸入**不是**返虛的洞府靈氣,"}
-                        />
-                        {[tier, subProcess.tier, thirdProcess.tier].includes(1) &&
-                            <TextField
-                                value={voidAir}
-                                onChange={(e) => setVoidAir(parseFloat(e.target.value))}
-                                label={"返虛境洞府靈氣(如有)"}
-                                variant="outlined"
-                                type={"number"}
-                                min={0.00}
-                                step={0.01}
-                                fullWidth
-                                helperText={"因為古寶套裝可能不同"}
-                            />
-                        }
-                        <FormControl sx={{minWidth: 100}}>
-                            <InputLabel htmlFor={"effective-input"}>吸收率</InputLabel>
-                            <OutlinedInput
-                                id={"effective-input"}
-                                value={effective}
-                                label={"吸收率"}
-                                onChange={(e) => setCustomEffective(parseFloat(e.target.value))}
-                                disabled={customEffective === false}
-                                startAdornment={"x"}
-                                endAdornment={"%"}
-                                type="number"
-                                aria-describedby="effective-input-helper-text"
-                            />
-                            <FormHelperText id={"effective-input-helper-text"}>白色文字</FormHelperText>
-                        </FormControl>
-                        <FormControlLabel sx={{minWidth: 80}} control={<Checkbox
-                            checked={customEffective !== false}
-                            onChange={(e, v) => setCustomEffective(v ? 0 : false)}
-                        />} label={"自訂"}/>
-                    </Stack>
-                </AccordionDetails>
-            </Accordion>
-
-            <Accordion sx={{ width: "100%" }} defaultExpanded>
-              <AccordionSummary
-                expandIcon={<ExpandMore />}
-                sx={{ "*": { color: "lightgreen" } }}
-              >
-                額外吸收率
-                <span>+{finalAdd}</span>
-              </AccordionSummary>
-
-              <AccordionDetails>
-                <Grid container spacing={4}>
-                  {/* 左邊：妖界降臨 + 總吸收率 + 額外吸收率 */}
-                  <Grid item xs={12} md={6}>
-                  <Stack direction="column" spacing={2} sx={{ minWidth: 240 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox checked={yaojie} onChange={(e, v) => setYaojie(v)} />
-                      }
-                      label={"妖界降臨(以滿級70%計算)"}
-                    />
-
-                    <FormControl sx={{ minWidth: 240 }}>
-                      <InputLabel htmlFor={"yaojie-effective-input"}>總吸收率</InputLabel>
-                      <OutlinedInput
-                        id={"yaojie-effective-input"}
-                        value={yaojieEffective.toFixed(1)}
-                        label={"總吸收率"}
-                        startAdornment={"≈"}
-                        endAdornment={"%"}
-                        type="number"
-                        disabled
-                      />
-                    </FormControl>
-
-                    <FormControl sx={{ "*": { color: "lightgreen" }, minWidth: 240 }}>
-                      <InputLabel htmlFor={"add-effective-input"}>
-                        額外吸收率 (綠色字)
-                      </InputLabel>
-                      <OutlinedInput
-                        value={addEfficiency}
-                        id={"add-effective-input"}
-                        variant="outlined"
-                        label={"額外吸收率 (綠色字)"}
-                        startAdornment={"+"}
-                        endAdornment={"%"}
-                        type="number"
-                        disabled
-                      />
-                    </FormControl>
-                  </Stack>
-                </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Stack direction="row" spacing={2} justifyContent="center">
-                    <Card sx={{ height: "100%", width: 125 }} elevation={5}>
-                      <CardContent>
-                        <Typography color={"success"}>奮起</Typography>
-                        <FormGroup>
-                          {levelList.slice(0, 3).map((name, i) => (
-                            <FormControlLabel
-                              checked={upT - 1 >= i}
-                              onChange={() => setUpT(upT === i + 1 ? 0 : i + 1)}
-                              control={<Checkbox size={"small"} />}
-                              label={name}
-                              key={name}
-                            />
-                          ))}
-                        </FormGroup>
-                        <FormControl variant={"standard"} fullWidth>
-                          <Select value={upRate} onChange={(e) => setUpRate(e.target.value)}>
-                            {[15, 20, 25, 30].map((i) => (
-                              <MenuItem value={i} key={i}>
-                                {i}%
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </CardContent>
-                    </Card>
-
-                    <Card sx={{ height: "100%", width: 150 }} elevation={5}>
-                      <CardContent>
-                        <Typography color={"aquamarine"}>
-                          前一境界<br />
-                          修煉精進
-                        </Typography>
-                        <RadioGroup value={buff} onChange={(e, v) => setBuff(parseInt(v))}>
-                          {Object.entries(buffs).map(([name, color], i) => (
-                            <FormControlLabel
-                              value={i}
-                              sx={{ color: color }}
-                              control={<Radio size={"small"} />}
-                              label={name}
-                              key={name}
-                            />
-                          ))}
-                        </RadioGroup>
-                      </CardContent>
-                    </Card>
-                  </Stack>
-                 </Grid>
-                </Grid>
-
-                <Typography
-                  variant="body2"
-                  color="textSecondary"
-                  style={{ marginTop: 12 }}
-                >
-                  💡 Tip: 如果你需要計算半步所需時間，請勾選此處💡
+            <Card sx={{ mt: 2, p: 2, backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                <Typography variant="h6" gutterBottom>
+                    計算結果 - 境界進度
                 </Typography>
-              </AccordionDetails>
-            </Accordion>
-
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "orange"}}}
-                >
-                    吐吶
-                    <span>+{finalBreathe}</span>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack alignItems={"center"} justifyContent={"center"}>
-                        <Typography variant={isMobile ? "h6" : "h2"} sx={{color: "rgba(255,255,255,0.5)"}}>
-                            抗拒計算吐納 從你我做起
-                        </Typography>
-                        <Stack px={10 * !isMobile} width={"-webkit-fill-available"}
-                               direction={isMobile ? "column" : "row"}
-                               justifyContent={"space-around"} alignItems={"center"}>
-                            <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"}
-                                   spacing={1}>
-                                <Typography fontSize={"xx-large"}>{breatheList[tier]}</Typography>
-                                <Typography color={"textSecondary"}>吐納基礎修為</Typography>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                        <Card variant="outlined" sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" color="primary" gutterBottom>主修進度</Typography>
+                            <Stack spacing={1}>
+                                <Typography>境界: {tierList[results.main.tier]}</Typography>
+                                <Typography>階段: {mainInfo.levelDisplay}</Typography>
+                                <Typography>重數: {mainInfo.processDisplay}重</Typography>
+                                <Typography>進度: {mainInfo.percentageDisplay}</Typography>
+                                <LinearProgress variant="determinate" value={mainInfo.isMaxLevel ? 100 : parseFloat(mainInfo.percentageDisplay)} sx={{ mt: 1, height: 10, borderRadius: 5, backgroundColor: mainInfo.isMaxLevel ? 'success.main' : 'primary.main' }} />
+                                {mainInfo.isMaxLevel && <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>🎉 已達圓滿境界</Typography>}
                             </Stack>
-                            <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3}
-                                        fontSize={"xxx-large"}>×</Typography>
-                            <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"}
-                                   spacing={1}>
-                                <Input type={"number"} sx={{width: 80,}}
-                                       onChange={(e) => setBreatheBuf(parseFloat(e.target.value))}
-                                       variant={"standard"} value={breatheBuf}
-                                       endAdornment={"%"}
-                                />
-                                <Typography color={"textSecondary"}>吐納加成</Typography>
+                        </Card>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <Card variant="outlined" sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" color="secondary" gutterBottom>輔修進度</Typography>
+                            <Stack spacing={1}>
+                                <Typography>境界: {tierList[results.sub.tier]}</Typography>
+                                <Typography>階段: {subInfo.levelDisplay}</Typography>
+                                <Typography>重數: {subInfo.processDisplay}重</Typography>
+                                <Typography>進度: {subInfo.percentageDisplay}</Typography>
+                                <LinearProgress variant="determinate" value={subInfo.isMaxLevel ? 100 : parseFloat(subInfo.percentageDisplay)} sx={{ mt: 1, height: 10, borderRadius: 5, backgroundColor: subInfo.isMaxLevel ? 'success.main' : 'secondary.main' }} />
+                                {subInfo.isMaxLevel && <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>🎉 已達圓滿境界</Typography>}
                             </Stack>
-                            <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3}
-                                        fontSize={"xxx-large"}>×</Typography>
-                            <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"}
-                                   spacing={1}>
-                                <Input type={"numbers"} sx={{width: 80}}
-                                       onChange={(e) => setBreatheTime(parseFloat(e.target.value))}
-                                       variant={"standard"} value={breatheTime}
-                                       endAdornment={"次"}/>
-                                <Typography color={"textSecondary"}>吐納次數</Typography>
+                        </Card>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <Card variant="outlined" sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" color="warning.main" gutterBottom>三修進度</Typography>
+                            <Stack spacing={1}>
+                                <Typography>境界: {tierList[results.third.tier]}</Typography>
+                                <Typography>階段: {thirdInfo.levelDisplay}</Typography>
+                                <Typography>重數: {thirdInfo.processDisplay}重</Typography>
+                                <Typography>進度: {thirdInfo.percentageDisplay}</Typography>
+                                <LinearProgress variant="determinate" value={thirdInfo.isMaxLevel ? 100 : parseFloat(thirdInfo.percentageDisplay)} sx={{ mt: 1, height: 10, borderRadius: 5, backgroundColor: thirdInfo.isMaxLevel ? 'success.main' : 'warning.main' }} />
+                                {thirdInfo.isMaxLevel && <Typography variant="caption" color="success.main" sx={{ fontStyle: 'italic' }}>🎉 已達圓滿境界</Typography>}
                             </Stack>
-                            <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3}
-                                        fontSize={"xxx-large"}>×</Typography>
-                            <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"}
-                                   spacing={1}>
-                                <Typography fontSize={"xx-large"}>1.9</Typography>
-                                <Typography color={"textSecondary"}>吐納爆擊</Typography>
-                            </Stack>
+                        </Card>
+                    </Grid>
+                </Grid>
+                <Accordion sx={{ mt: 2 }}>
+                    <AccordionSummary expandIcon={<ExpandMore/>}>
+                        <Typography variant="caption">詳細經驗信息</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack spacing={1}>
+                            <Typography variant="caption">主修: 境界 {tierList[results.main.tier]}, 階段 {levelList[results.main.level]}, 重數 {results.main.process + 1}, 經驗 {formatNumber(results.main.exp)} / {formatNumber(exps[results.main.tier][results.main.level][results.main.process] || 0)}</Typography>
+                            <Typography variant="caption">輔修: 境界 {tierList[results.sub.tier]}, 階段 {levelList[results.sub.level]}, 重數 {results.sub.process + 1}, 經驗 {formatNumber(results.sub.exp)} / {formatNumber(exps[results.sub.tier][results.sub.level][results.sub.process] || 0)}</Typography>
+                            <Typography variant="caption">三修: 境界 {tierList[results.third.tier]}, 階段 {levelList[results.third.level]}, 重數 {results.third.process + 1}, 經驗 {formatNumber(results.third.exp)} / {formatNumber(exps[results.third.tier][results.third.level][results.third.process] || 0)}</Typography>
                         </Stack>
-                    </Stack>
-                </AccordionDetails>
-            </Accordion>
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "magenta"}}}
-                >
-                    丹藥
-                    <span>+{finalMed}</span>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="center"
-                           justifyContent="space-around">
-                        {["grey", "lightgreen", "lightblue", "magenta", "gold"].map((color, i) => <Stack
-                            alignItems={"center"} key={color} direction={!isMobile ? "column" : "row-reverse"}
-                            spacing={isMobile * 2}>
-                            <Stack direction={"row"} alignItems={"center"} spacing={0.5}>
-                                <Box sx={{width: 10, height: 10, backgroundColor: color, borderRadius: 100}}/>
-                                <Input
-                                    sx={{width: 50}}
-                                    type={"number"}
-                                    value={medAmount[i]}
-                                    startAdornment={"x"}
-                                    onChange={(e) => {
-                                        let newAmount = Array.from(medAmount);
-                                        newAmount[i] = parseFloat(e.target.value);
-                                        if (newAmount[i] < 0) return
-                                        setMedAmount(newAmount);
-                                    }}
-                                />
-                            </Stack>
-                            <Input
-                                sx={{width: 80}}
-                                type={"number"}
-                                value={medExp[i]}
-                                placeholder={""}
-                                endAdornment={"萬"}
-                                onChange={(e) => {
-                                    let newAmount = Array.from(medExp);
-                                    newAmount[i] = parseFloat(e.target.value);
-                                    if (newAmount[i] < 0) return
-                                    setMedExp(newAmount);
-                                }}
-                            />
-                        </Stack>)}
-                    </Stack>
-                </AccordionDetails>
-                <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
-            </Accordion>
+                    </AccordionDetails>
+                </Accordion>
+            </Card>
+        );
+    };
 
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "lightblue"}}}
-                >
-                    化靈臺
-                    <span>+{finalTable}</span>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack spacing={2} direction={isMobile ? "column" : "row"} alignItems={"center"}
-                           justifyContent={"center"}>
-                        <ToggleButtonGroup exclusive onChange={(e, v) => v !== null ? setTableType(v) : null}
-                                           value={tableType} orientation={"vertical"} fullWidth={isMobile}
-                                           size={isMobile ? "small" : "medium"}>
-                            <ToggleButton value={0}>
-                                立即吃
-                            </ToggleButton>
-                            <ToggleButton value={1}>
-                                達成條件後吃
-                            </ToggleButton>
-                            <ToggleButton value={2}>
-                                最小進食量
-                            </ToggleButton>
-                            <ToggleButton value={3}>
-                                不吃
-                            </ToggleButton>
-                        </ToggleButtonGroup>
+    return (
+        <Stack spacing={2} sx={{my: 2}}>
+            <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
 
-                        <FormGroup>
-                            {["購買萬妖果禮包x2", "購買萬妖令禮包", "目前最高等級(+50%)"].map((t, i) =>
-                                <FormControlLabel
-                                    checked={tableControl[i]}
-                                    onChange={(e, v) => {
-                                        let newControl = Array.from(tableControl);
-                                        newControl[i] = v;
-                                        setTableControl(newControl);
-                                    }}
-                                    control={<Checkbox/>}
-                                    label={t}
-                                    key={t}
-                                />)}
+            <SaveLoader save={save} load={load} relaod={() => setReload(Math.random())} value={reload} />
 
-                        </FormGroup>
-                        <Slider
-                            sx={isMobile ? {} : {height: "100px"}}
-                            orientation={isMobile ? "horizontal" : "vertical"}
-                            defaultValue={1}
-                            value={tableChance}
-                            onChange={(e, v) => setTableChance(v)}
-                            valueLabelDisplay={isMobile ? "on" : "auto"}
-                            valueLabelFormat={(v) => ["非酋(全保底)", "正常(期望機率)", "歐皇(全靈湧)"][v]}
-                            step={null}
-                            min={0}
-                            max={2}
-                            marks={[{value: 0}, {value: 1}, {value: 2},]}
-                        />
-                        <Stack spacing={2}>
+            <Stack direction="row" className={"justify-center items-center"} spacing={3}>
+                <Typography color={"textSecondary"}>修練(計算)方向</Typography>
+                <RadioGroup row value={dir} onChange={(e, v) => setDir(parseInt(v))}>
+                    <FormControlLabel control={<Radio value={0}/>} label={"主修"}/>
+                    <FormControlLabel control={<Radio value={1}/>} label={"輔修"}/>
+                    <FormControlLabel control={<Radio value={2}/>} label={"三修"}/>
+                </RadioGroup>
+            </Stack>
 
-                            <TextField
-                                label={"當前果子數量"}
-                                type={"number"}
-                                value={tableCount}
-                                onChange={(e) => setTableCount(parseFloat(e.target.value))}
-                            />
+            <Stack spacing={1}>
+                <Stack direction={"row"} className={"items-center justify-around"}>
+                    <Typography color={"textSecondary"}>主修</Typography>
+                    <ExpSelector tier={tier} setTier={setTier} level={level} setLevel={setLevel} process={process} setProcess={setProcess} exp={exp} setExp={setExp} full={true} lock={false} />
+                </Stack>
+                <Divider />
+                <Stack direction={"row"} className={"items-center justify-around"}>
+                    <Typography color={"textSecondary"}>輔修</Typography>
+                    <ExpSelector setData={setSubProcess} tier={subProcess.tier} level={subProcess.level} process={subProcess.process} exp={subProcess.exp} />
+                </Stack>
+                <Divider />
+                <Stack direction={"row"} className={"items-center justify-around"}>
+                    <Typography color={"textSecondary"}>三修</Typography>
+                    <ExpSelector setData={setThirdProcess} tier={thirdProcess.tier} level={thirdProcess.level} process={thirdProcess.process} exp={thirdProcess.exp} />
+                </Stack>
+            </Stack>
 
-                            <TextField
-                                label={"每週額外果子數量"}
-                                type={"number"}
-                                value={tableExtra}
-                                onChange={(e) => setTableExtra(parseFloat(e.target.value))}
-                            />
+            <Stack direction={"row"} alignItems={"center"}>
+                <Box width={"100%"}>
+                    <LinearProgress variant={"determinate"} value={([0, ...exps[tier][level].slice(0, process)].reduce((a, b) => a + b) + exp) / exps[tier][level === 3 ? 2 : level].reduce((a, b) => a + b) * 100 + (level === 3) * 100} />
+                </Box>
+                <Typography minWidth={125} fontSize={"small"} color={"textSecondary"}>
+                    {tierList[tier]}{levelList[level]}
+                    {formatNumber(([0, ...exps[tier][level].slice(0, process)].reduce((a, b) => a + b) + exp) / exps[tier][level === 3 ? 2 : level].reduce((a, b) => a + b) * 100 + (level === 3) * 100)}%
+                </Typography>
+            </Stack>
+
+            <Box sx={{"*": {"*.MuiAccordionSummary-content": {justifyContent: "space-between"}}}}>
+                <Accordion sx={{width: "100%"}} defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "white"}}}>
+                        修煉速度
+                        <span>+{Math.round(baseSpeed * 100) / 100}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"} spacing={2}>
+                            <TextField value={othersAir} onChange={(e) => setOthersAir(parseFloat(e.target.value))} label={"洞府靈氣"} variant="outlined" type={"number"} min={0.00} step={0.01} fullWidth helperText={"請輸入**不是**返虛的洞府靈氣,"} />
+                            {[tier, subProcess.tier, thirdProcess.tier].includes(1) && <TextField value={voidAir} onChange={(e) => setVoidAir(parseFloat(e.target.value))} label={"返虛境洞府靈氣(如有)"} variant="outlined" type={"number"} min={0.00} step={0.01} fullWidth helperText={"因為古寶套裝可能不同"} />}
+                            <FormControl sx={{minWidth: 100}}>
+                                <InputLabel htmlFor={"effective-input"}>吸收率</InputLabel>
+                                <OutlinedInput id={"effective-input"} value={effectiveSpeed} label={"吸收率"} onChange={(e) => setCustomEffective(parseFloat(e.target.value))} disabled={customEffective === false} startAdornment={"x"} endAdornment={"%"} type="number" aria-describedby="effective-input-helper-text" />
+                                <FormHelperText id={"effective-input-helper-text"}>白色文字</FormHelperText>
+                            </FormControl>
+                            <FormControlLabel sx={{minWidth: 80}} control={<Checkbox checked={customEffective !== false} onChange={(e, v) => setCustomEffective(v ? 0 : false)} />} label={"自訂"} />
                         </Stack>
-                    </Stack>
-                    <Collapse in={tableType === 1}>
+                    </AccordionDetails>
+                </Accordion>
 
-                        <Stack direction={isMobile ? "column" : "row"} p={3} justifyContent={"space-around"}
-                               alignItems={"center"} spacing={2}>
-                            <ToggleButtonGroup exclusive
-                                               onChange={(e, v) => v !== null ? setTableStopType(v) : null}
-                                               value={tableStopType}
-                                               orientation={isMobile ? "horizontal" : "vertical"}>
-                                <ToggleButton value={0}>
-                                    修為
-                                </ToggleButton>
-                                <ToggleButton value={1}>
-                                    時間
-                                </ToggleButton>
-                            </ToggleButtonGroup>
-                            {tableStopType ? <FormControl>
-                                <Input
-                                    value={tableTime}
-                                    onChange={(e) => setTableTime(parseFloat(e.target.value))}
-                                    type="number"
-                                    endAdornment={"天"}
-                                />
-                            </FormControl> : <ExpSelector
-                                full={false}
-                                setData={setTableTierToStop}
-                                lock={true}
-                                tier={tier} level={level} process={process}
-                            />}
-                            後吃果子
-                        </Stack>
-                    </Collapse>
-
-                    <Stack p={!isMobile * 3} pt={3}
-                           sx={{"div": {display: "flex", justifyContent: "space-between"}}}>
-                        <Divider/>
-                        {[{label: "萬妖果(紅)基礎修為:", value: redFruitList[tier]}, {
-                            label: "靈氣球修為加成:", value: `*1.8 ${tableControl[2] ? "*1.5" : ""}`
-                        }, {
-                            label: "數量(每周):",
-                            value: `9 ${tableControl[0] ? "+6" : ""} ${tableControl[1] ? "+6" : ""}`
-                        }, {label: "靈湧機率:", value: `${tableChances[tableChance]}%`}, {
-                            label: "期望修為:",
-                            value: [0, 3].includes(tableType) ? `${formatNumber(tableSpeed)} / 周` : "請使用計算功能"
-                        }].map(({label, value}) => (<>
-                            <Box key={label}>
-                                <Typography fontSize={isMobile ? "medium" : "x-large"}
-                                            color={"textSecondary"}>{label}</Typography>
-                                <Typography fontSize={isMobile ? "large" : "x-large"}
-                                            color={"textSecondary"}>{value}</Typography>
-                            </Box><Divider key={label + "-divider"}/>
-                        </>))}
-                    </Stack>
-                </AccordionDetails>
-                <AccordionActions>
-                    *預設所有等級已升滿
-                    *一次過吃的時候會消耗所有萬妖果（會益出修為），不會因為達成完滿而剩下果實
-                </AccordionActions>
-            </Accordion>
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "gold"}}}
-                >
-                    納靈石
-                    <span>+{finalStone}</span>
-                </AccordionSummary>
-
-                <AccordionDetails>
-                    <Stack direction={isMobile ? "column" : "row"} alignItems={"center"}
-                           justifyContent={"space-around"} spacing={1}>
-
-                        <FormControl sx={{width: isMobile ? "100%" : "50%"}}>
-                            <InputLabel htmlFor={"stone-level-select"}>品質</InputLabel>
-                            <Select
-                                id={"stone-level-select"}
-                                label={"品質"}
-                                value={stoneLV}
-                                onChange={(e) => setStoneLV(parseFloat(e.target.value))}
-                                variant={"outlined"}
-                                sx={{color: Object.values(stone)[stoneLV]}}
-                            >
-                                {Object.keys(stone).map((t, i) => <MenuItem sx={{color: stone[t]}} value={i}
-                                                                            key={t}>{t}品</MenuItem>)}
-                            </Select>
-                        </FormControl>
-
-                        <span>
-                               +{speed * (baseStoneEffect / 100)} / 周天
-                            </span>
-                    </Stack>
-                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={stoneSealEnabled}
-                            onChange={(e, v) => setStoneSealEnabled(v)}
-                          />
-                        }
-                        label="玄黃納靈印"
-                      />
-                      {stoneSealEnabled && (
-                        <TextField
-                          label="額外獲得收益(%)"
-                          type="number"
-                          value={stoneSealPercent}
-                          onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)}
-                          sx={{ width: 120 }}
-                          InputProps={{ endAdornment: <span>%</span> }}
-                        />
-                      )}
-                    </Stack>
-                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={stoneForgeEnabled}
-                            onChange={(e, v) => setStoneForgeEnabled(v)}
-                          />
-                        }
-                        label="納靈印鍛靈 (繼承修練速度)"
-                      />
-                      {stoneForgeEnabled && (
-                        <TextField
-                          label="加成(%)"
-                          type="number"
-                          value={stoneForgePercent}
-                          onChange={(e) => setStoneForgePercent(parseFloat(e.target.value) || 0)}
-                          sx={{ width: 120 }}
-                          InputProps={{ endAdornment: <span>%</span> }}
-                        />
-                      )}
-                    </Stack>
-                </AccordionDetails>
-            </Accordion>
-
-
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "red"}}}
-                >
-                    至寶
-                    <span>≈+{finalGod}</span>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"}
-                           spacing={2}>
-                        {["星海瓶", "雙星鏡"].map((t, i) => <>
-                            <Stack alignItems={"center"} width={"100%"} p={!isMobile * 3} spacing={1}>
-                                <Checkbox
-                                    checked={gods[i][0] >= 0}
-                                    onChange={(e, v) => {
-                                        let newGods = Array.from(gods);
-                                        newGods[i][0] = v ? 0 : -1;
-                                        if (i === 0 && v === false) {
-                                            newGods[1][0] = -1;
-                                        }
-                                        if (i === 1 && v === true && gods[0][0] === -1) {
-                                            newGods[0][0] = 0;
-                                        }
-                                        setGods(newGods);
-                                    }}
-                                />
-                                {t}
-                                <Rating
-                                    disabled={gods[i][0] < 0}
-                                    value={gods[i][0]}
-                                    onChange={(e, v) => {
-                                        let newGods = Array.from(gods);
-                                        newGods[i][0] = v === null ? 0 : v;
-                                        setGods(newGods);
-                                    }}
-                                    min={0}
-                                />
-                                <Stack direction={"row"} alignItems={"baseline"}>
-                                    <Box sx={{width: 10, height: 10, backgroundColor: "red", borderRadius: 100}}/>
-                                    x{godDay[i]} / 天
-                                </Stack>
-
-                                {!i ? <Input
-                                    value={gods[i][1]}
-                                    onChange={(e) => {
-                                        let newGods = Array.from(gods);
-                                        newGods[i][1] = parseFloat(e.target.value === "" ? 0 : e.target.value);
-                                        setGods(newGods);
-                                    }}
-                                    endAdornment={"萬"}
-                                    type={"number"}
-                                    min={0}
-                                    sx={{width: 80}}
-
-                                /> : <FormControlLabel
-                                    checked={gods[i][2]}
-                                    control={<Checkbox size={"small"}/>} label={"幻化"}
-                                    onChange={(e, v) => {
-                                        let newGods = Array.from(gods);
-                                        newGods[i][2] = v;
-                                        setGods(newGods);
-                                    }}
-                                />}
-                                <Typography color={"error"}>
-                                    ≈+ {formatNumber(godSpeed[i])} / 天
-                                </Typography>
-                            </Stack>
-                            <Divider flexItem orientation={isMobile ? "horizontal" : "vertical"}/>
-                        </>)}
-                    </Stack>
-                </AccordionDetails>
-                <AccordionActions>
-                    <FormControlLabel
-                        checked={godDoubles}
-                        control={<Checkbox/>}
-                        label={"計算雙倍機會 (15%)"}
-                        onChange={(e, v) => setGodDoubles(v)}
-                    />
-                </AccordionActions>
-            </Accordion>
-
-            <Accordion sx={{width: "100%"}}>
-                <AccordionSummary
-                    expandIcon={<ExpandMore/>}
-                    sx={{"*": {color: "grey"}}}
-                >
-                    輔修相關
-                </AccordionSummary>
-                <AccordionDetails>
-                   <Grid container spacing={3}>
-                        {/* 左側 - 紫闕合道爐 */}
-                        <Grid item xs={12} md={6}>
-                           <Stack spacing={2} alignItems="center">
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            checked={purpleFurnaceEnabled}
-                                            onChange={(e, v) => setPurpleFurnaceEnabled(v)}
-                                        />
-                                    }
-                                    label="紫闕合道爐"
-                                    sx={{width: "100%", justifyContent: "center"}}
-                                />
-                                
-                                {purpleFurnaceEnabled && (
-                                    <TextField
-                                        label="輔修獨立修煉"
-                                        type="number"
-                                        value={purpleFurnacePercent}
-                                        onChange={(e) => setPurpleFurnacePercent(parseFloat(e.target.value) || 0)}
-                                        sx={{width: 150}}
-                                        InputProps={{ 
-                                            endAdornment: <span>%</span>,
-                                            inputProps: {min: 0, max: 100, step: 0.1}
-                                        }}
-                                    />
-                                )}
-                                
-                                {/* 顯示輔修修煉速度 */}
-                                {purpleFurnaceEnabled && purpleFurnacePercent > 0 && (
-                                    <Typography variant="body2" color="secondary">
-                                        輔修修煉速度: {formatNumber(purpleFurnaceSpeed)} / 周天
-                                    </Typography>
-                                )}
-                            </Stack>
-                        </Grid>
-            
-                        {/* 右側 - 逆塵珠 */}
+                <Accordion sx={{ width: "100%" }} defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
+                        額外吸收率
+                        <span>+{Math.round(extraSpeed * 100) / 100}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Grid container spacing={3}>
                             <Grid item xs={12} md={6}>
-                                <Stack spacing={2} alignItems="center">
-                                    <FormControlLabel
-                                        control={<Checkbox checked={nichenzhuEnabled} onChange={(e, v) => setNichenzhuEnabled(v)} />}
-                                        label="逆塵珠"
-                                        sx={{width: "100%", justifyContent: "center"}}
-                                    />
-            
-                                    {nichenzhuEnabled && (
-                                        <>
-                                            {/* 星級顯示 */}
-                                            <Rating
-                                                disabled={!nichenzhuEnabled}
-                                                value={nichenzhuStars}
-                                                onChange={(e, v) => setNichenzhuStars(v === null ? 0 : v)}
-                                                min={0} max={5} size="large"
-                                            />
-                    
-                                            {/* 能量信息 */}
-                                            <Stack spacing={1} alignItems="center">
+                                <Card sx={{ height: "100%", backgroundColor: 'rgba(0,0,0,0.2)' }} elevation={3}>
+                                    <CardContent>
+                                        <Stack spacing={2}>
+                                            <Typography variant="h6" color="aquamarine">
+                                                前一境界精進
+                                            </Typography>
+                                            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                                                (主修非圓滿時生效)
+                                            </Typography>
+                                            
+                                            <FormControl component="fieldset">
+                                                <RadioGroup value={prevBuff} onChange={(e, v) => setPrevBuff(parseInt(v))}>
+                                                    <FormControlLabel 
+                                                        value={0} 
+                                                        control={<Radio size="small" />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography>圓滿</Typography>
+                                                                <Typography variant="caption" color="textSecondary">(無加成)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={1} 
+                                                        control={<Radio size="small" />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography>大成</Typography>
+                                                                <Typography variant="caption" color="textSecondary">(無加成)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={2} 
+                                                        control={<Radio size="small" sx={{ color: 'gold' }} />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography sx={{ color: 'gold' }}>完美</Typography>
+                                                                <Typography variant="caption" color="gold">(+20% 當前境界前期)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={3} 
+                                                        control={<Radio size="small" sx={{ color: 'red' }} />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography sx={{ color: 'red' }}>半步</Typography>
+                                                                <Typography variant="caption" color="red">(+40% 當前境界前/中期)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                </RadioGroup>
+                                            </FormControl>
+                                            
+                                            <Divider />
+                                            
+                                            <Stack spacing={1}>
                                                 <Typography variant="body2" color="textSecondary">
-                                                    能量上限: {nichenzhuEnergyMax} 點
+                                                    當前主修境界: {tierList[tier]} {levelList[level]}
                                                 </Typography>
                                                 <Typography variant="body2" color="textSecondary">
-                                                    恢復速度: {nichenzhuRecoveryRate} 點/道年
+                                                    當前輔修境界: {tierList[subProcess.tier]} {levelList[subProcess.level]}
                                                 </Typography>
-                                                <Typography variant="body2" color="textSecondary">
-                                                    每日恢復: {Math.round(nichenzhuRecoveryRate * 96)} 點/天                                                    </Typography>
-                                                <Typography variant="body2" color="textSecondary">
-                                                    每週天恢復: {(nichenzhuRecoveryRate * (8/15)).toFixed(2)} 點/週天
-                                                </Typography>
+                                                <Box sx={{ 
+                                                    p: 1.5, 
+                                                    borderRadius: 1, 
+                                                    backgroundColor: perfectionBonus > 0 ? 'rgba(144,238,144,0.15)' : 'rgba(255,255,255,0.05)',
+                                                    border: perfectionBonus > 0 ? '1px solid rgba(144,238,144,0.3)' : '1px solid rgba(255,255,255,0.1)'
+                                                }}>
+                                                    <Typography variant="body2" color={perfectionBonus > 0 ? 'lightgreen' : 'textSecondary'}>
+                                                        精進加成: {perfectionBonus > 0 ? `+${perfectionBonus}%` : '無'}
+                                                    </Typography>
+                                                </Box>
                                             </Stack>
-                                                    
-                                            {/* 幻化功能 */}
-                                            <FormControlLabel
-                                                control={<Checkbox checked={nichenzhuTransform} onChange={(e, v) => setNichenzhuTransform(v)} size="small" />}
-                                                label="幻化" disabled={!nichenzhuEnabled}
-                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
                             
-                                            {/* 能量消耗 */}                                                    <Typography variant="caption" color="textSecondary">
-                                            消耗: {nichenzhuEnergyCost}點/次
-                                        </Typography>
-                 
-                                        {/* 每日使用次數 */}                                            <Typography variant="body2" color="textSecondary">
-                                            每日可使用: {Math.floor((nichenzhuRecoveryRate * 96) / nichenzhuEnergyCost)} 次
-                                       </Typography>                                                </>
-                                        )}
-                                    </Stack>
+                            <Grid item xs={12} md={6}>
+                                <Card sx={{ height: "100%", backgroundColor: 'rgba(0,0,0,0.2)' }} elevation={3}>
+                                    <CardContent>
+                                        <Stack spacing={2}>
+                                            <Typography variant="h6" color="gold">
+                                                當前境界精進
+                                            </Typography>
+                                            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                                                (主修圓滿時生效)
+                                            </Typography>
+                                            
+                                            <FormControl component="fieldset">
+                                                <RadioGroup value={currentBuff} onChange={(e, v) => setCurrentBuff(parseInt(v))}>
+                                                    <FormControlLabel 
+                                                        value={0} 
+                                                        control={<Radio size="small" />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography>圓滿</Typography>
+                                                                <Typography variant="caption" color="textSecondary">(無加成)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={1} 
+                                                        control={<Radio size="small" sx={{ color: 'magenta' }} />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography sx={{ color: 'magenta' }}>大成</Typography>
+                                                                <Typography variant="caption" color="magenta">(+20% 輔修=主修-1 且中期以上)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={2} 
+                                                        control={<Radio size="small" sx={{ color: 'gold' }} />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography sx={{ color: 'gold' }}>完美</Typography>
+                                                                <Typography variant="caption" color="gold">(+20% 輔修=主修 且前期)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                    <FormControlLabel 
+                                                        value={3} 
+                                                        control={<Radio size="small" sx={{ color: 'red' }} />} 
+                                                        label={
+                                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Typography sx={{ color: 'red' }}>半步</Typography>
+                                                                <Typography variant="caption" color="red">(+40% 輔修=主修 且圓滿)</Typography>
+                                                            </Stack>
+                                                        } 
+                                                    />
+                                                </RadioGroup>
+                                            </FormControl>
+                                            
+                                            <Divider />
+                                            
+                                            <Stack spacing={1}>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    主修境界: {tierList[tier]} {levelList[level]} {isMainPerfect ? '✅ 圓滿' : '❌ 未圓滿'}
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    輔修境界: {tierList[subProcess.tier]} {levelList[subProcess.level]}
+                                                </Typography>
+                                                <Box sx={{ 
+                                                    p: 1.5, 
+                                                    borderRadius: 1, 
+                                                    backgroundColor: currentPerfectionBonus > 0 ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.05)',
+                                                    border: currentPerfectionBonus > 0 ? '1px solid rgba(255,215,0,0.3)' : '1px solid rgba(255,255,255,0.1)'
+                                                }}>
+                                                    <Typography variant="body2" color={currentPerfectionBonus > 0 ? 'gold' : 'textSecondary'}>
+                                                        精進加成: {currentPerfectionBonus > 0 ? `+${currentPerfectionBonus}%` : '無'}
+                                                    </Typography>
+                                                </Box>
+                                            </Stack>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                        
+                        <Box sx={{ mt: 3 }}>
+                            <Grid container spacing={3}>
+                                <Grid item xs={12} md={6}>
+                                    <Card sx={{ backgroundColor: 'rgba(0,0,0,0.15)' }} elevation={2}>
+                                        <CardContent>
+                                            <Typography variant="subtitle1" color="textSecondary" gutterBottom>
+                                                獨立倍率 (相乘)
+                                            </Typography>
+                                            <Stack direction="row" spacing={2} flexWrap="wrap">
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    <FormControlLabel 
+                                                        control={<Checkbox size="small" checked={fenqiEnabled} onChange={(e, v) => setFenqiEnabled(v)} />} 
+                                                        label="奮起" 
+                                                    />
+                                                    {fenqiEnabled && (
+                                                        <TextField 
+                                                            type="number" 
+                                                            value={fenqiBonus} 
+                                                            onChange={(e) => setFenqiBonus(parseFloat(e.target.value) || 0)}
+                                                            InputProps={{ endAdornment: <span>%</span> }}
+                                                            size="small"
+                                                            sx={{ width: 80 }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                                
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    <FormControlLabel 
+                                                        control={<Checkbox size="small" checked={wanjieTianyuanEnabled} onChange={(e, v) => setWanjieTianyuanEnabled(v)} />} 
+                                                        label="萬界天淵" 
+                                                    />
+                                                    {wanjieTianyuanEnabled && (
+                                                        <TextField 
+                                                            type="number" 
+                                                            value={wanjieTianyuanBonus} 
+                                                            onChange={(e) => setWanjieTianyuanBonus(parseFloat(e.target.value) || 0)}
+                                                            InputProps={{ endAdornment: <span>%</span> }}
+                                                            size="small"
+                                                            sx={{ width: 80 }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                                
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    <FormControlLabel 
+                                                        control={<Checkbox size="small" checked={yaojieEnabled} onChange={(e, v) => setYaojieEnabled(v)} />} 
+                                                        label="妖界降臨" 
+                                                    />
+                                                    {yaojieEnabled && (
+                                                        <TextField 
+                                                            type="number" 
+                                                            value={yaojieBonus} 
+                                                            onChange={(e) => setYaojieBonus(parseFloat(e.target.value) || 0)}
+                                                            InputProps={{ endAdornment: <span>%</span> }}
+                                                            size="small"
+                                                            sx={{ width: 80 }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                            </Stack>
+                                            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                                                總倍率: ×{totalMultiplier.toFixed(2)}
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                                
+                                <Grid item xs={12} md={6}>
+                                    <Card sx={{ backgroundColor: 'rgba(0,0,0,0.15)' }} elevation={2}>
+                                        <CardContent>
+                                            <Typography variant="subtitle1" color="textSecondary" gutterBottom>
+                                                最終吸收率
+                                            </Typography>
+                                            <Stack spacing={1}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="body2">境界吸收率</Typography>
+                                                    <Typography variant="body2" fontWeight="bold">{effectiveSpeed.toFixed(1)}%</Typography>
+                                                </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="body2" color="lightgreen">精進加成</Typography>
+                                                    <Typography variant="body2" color="lightgreen" fontWeight="bold">+{(perfectionBonus + currentPerfectionBonus).toFixed(1)}%</Typography>
+                                                </Box>
+                                                <Divider />
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="body2" fontWeight="bold">最終吸收率</Typography>
+                                                    <Typography variant="body2" fontWeight="bold" color="lightgreen">
+                                                        {finalEfficiency.toFixed(1)}%
+                                                    </Typography>
+                                                </Box>
+                                            </Stack>
+                                        </CardContent>
+                                    </Card>
                                 </Grid>
                             </Grid>
-                        </AccordionDetails>
-                    </Accordion>
-             </Box>
+                        </Box>
+                    </AccordionDetails>
+                </Accordion>
 
-        <Stack spacing={1}>
-            <Typography variant={isMobile ? "h6" : "h5"}>
-               修煉速度: {Math.round((air * (effective + addEfficiency) / 100 * yaojieMul) * 100) / 100} / 周天            
-            </Typography>
-         {purpleFurnaceEnabled && purpleFurnacePercent > 0 && (
-            <Typography variant={isMobile ? "h6" : "h5"} color="secondary">
-               輔修修煉速度: {formatNumber(purpleFurnaceSpeed)} / 周天
-            </Typography>
-         )}
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "orange"}}}>
+                        吐吶
+                        <span>+{finalBreathe}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack alignItems={"center"} justifyContent={"center"}>
+                            <Typography variant={isMobile ? "h6" : "h2"} sx={{color: "rgba(255,255,255,0.5)"}}>抗拒計算吐納 從你我做起</Typography>
+                            <Stack px={10 * !isMobile} width={"-webkit-fill-available"} direction={isMobile ? "column" : "row"} justifyContent={"space-around"} alignItems={"center"}>
+                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                    <Typography fontSize={"xx-large"}>{breatheList[tier]}</Typography>
+                                    <Typography color={"textSecondary"}>吐納基礎修為</Typography>
+                                </Stack>
+                                <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3} fontSize={"xxx-large"}>×</Typography>
+                                <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                    <Input type={"number"} sx={{width: 80,}} onChange={(e) => setBreatheBuf(parseFloat(e.target.value))} variant={"standard"} value={breatheBuf} endAdornment={"%"} />
+                                    <Typography color={"textSecondary"}>吐納加成</Typography>
+                                </Stack>
+                                <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3} fontSize={"xxx-large"}>×</Typography>
+                                <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                    <Input type={"numbers"} sx={{width: 80}} onChange={(e) => setBreatheTime(parseFloat(e.target.value))} variant={"standard"} value={breatheTime} endAdornment={"次"} />
+                                    <Typography color={"textSecondary"}>吐納次數</Typography>
+                                </Stack>
+                                <Typography sx={{color: "rgba(255,255,255,0.5)"}} m={-3} fontSize={"xxx-large"}>×</Typography>
+                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                    <Typography fontSize={"xx-large"}>1.9</Typography>
+                                    <Typography color={"textSecondary"}>吐納爆擊</Typography>
+                                </Stack>
+                            </Stack>
+                        </Stack>
+                    </AccordionDetails>
+                </Accordion>
 
-            <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
-                {formatNumber(finalSpeed)}
-                <div style={{color: "lightgreen"}}>+{formatNumber(finalAdd)}</div>
-                <div style={{color: "orange"}}>+{formatNumber(finalBreathe)}</div>
-                <div style={{color: "magenta"}}>+{formatNumber(finalMed)}</div>
-                <div style={{color: "lightblue"}}>+{formatNumber(finalTable)}</div>
-                <div style={{color: "gold"}}>+{formatNumber(finalStone)}</div>
-                <div style={{color: "red"}}>≈+{formatNumber(finalGod)}</div>
-            </Stack>
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "magenta"}}}>
+                        丹藥
+                        <span>+{finalMed}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="center" justifyContent="space-around">
+                            {["grey", "lightgreen", "lightblue", "magenta", "gold"].map((color, i) => (
+                                <Stack alignItems={"center"} key={color} direction={!isMobile ? "column" : "row-reverse"} spacing={isMobile * 2}>
+                                    <Stack direction={"row"} alignItems={"center"} spacing={0.5}>
+                                        <Box sx={{width: 10, height: 10, backgroundColor: color, borderRadius: 100}}/>
+                                        <Input sx={{width: 50}} type={"number"} value={medAmount[i]} startAdornment={"x"} onChange={(e) => { let newAmount = Array.from(medAmount); newAmount[i] = parseFloat(e.target.value); if (newAmount[i] < 0) return; setMedAmount(newAmount); }} />
+                                    </Stack>
+                                    <Input sx={{width: 80}} type={"number"} value={medExp[i]} placeholder={""} endAdornment={"萬"} onChange={(e) => { let newAmount = Array.from(medExp); newAmount[i] = parseFloat(e.target.value); if (newAmount[i] < 0) return; setMedExp(newAmount); }} />
+                                </Stack>
+                            ))}
+                        </Stack>
+                    </AccordionDetails>
+                    <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
+                </Accordion>
 
-            <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"} alignItems={"center"}>
-                當前境界
-                <Typography variant={"h4"}>總修煉速度:</Typography>
-                <Typography variant={"h4"}>
-                    <AnimatedNumbers
-                        animateToNumber={finalSpeed + finalAdd + finalBreathe + finalMed + finalStone + finalTable + finalGod}
-                        includeComma
-                        transitions={(index) => ({
-                            type: "spring", duration: index / 10,
-                        })}
-                    />
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "lightblue"}}}>
+                        化靈臺
+                        <span>+{finalTable}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack spacing={2} direction={isMobile ? "column" : "row"} alignItems={"center"} justifyContent={"center"}>
+                            <ToggleButtonGroup exclusive onChange={(e, v) => v !== null ? setTableType(v) : null} value={tableType} orientation={"vertical"} fullWidth={isMobile} size={isMobile ? "small" : "medium"}>
+                                <ToggleButton value={0}>立即吃</ToggleButton>
+                                <ToggleButton value={1}>達成條件後吃</ToggleButton>
+                                <ToggleButton value={2}>最小進食量</ToggleButton>
+                                <ToggleButton value={3}>不吃</ToggleButton>
+                            </ToggleButtonGroup>
+                            <FormGroup>
+                                {["購買萬妖果禮包x2", "購買萬妖令禮包", "目前最高等級(+50%)"].map((t, i) => (
+                                    <FormControlLabel checked={tableControl[i]} onChange={(e, v) => { let newControl = Array.from(tableControl); newControl[i] = v; setTableControl(newControl); }} control={<Checkbox/>} label={t} key={t} />
+                                ))}
+                            </FormGroup>
+                            <Slider sx={isMobile ? {} : {height: "100px"}} orientation={isMobile ? "horizontal" : "vertical"} defaultValue={1} value={tableChance} onChange={(e, v) => setTableChance(v)} valueLabelDisplay={isMobile ? "on" : "auto"} valueLabelFormat={(v) => ["非酋(全保底)", "正常(期望機率)", "歐皇(全靈湧)"][v]} step={null} min={0} max={2} marks={[{value: 0}, {value: 1}, {value: 2}]} />
+                            <Stack spacing={2}>
+                                <TextField label={"當前果子數量"} type={"number"} value={tableCount} onChange={(e) => setTableCount(parseFloat(e.target.value))} />
+                                <TextField label={"每週額外果子數量"} type={"number"} value={tableExtra} onChange={(e) => setTableExtra(parseFloat(e.target.value))} />
+                            </Stack>
+                        </Stack>
+                        <Collapse in={tableType === 1}>
+                            <Stack direction={isMobile ? "column" : "row"} p={3} justifyContent={"space-around"} alignItems={"center"} spacing={2}>
+                                <ToggleButtonGroup exclusive onChange={(e, v) => v !== null ? setTableStopType(v) : null} value={tableStopType} orientation={isMobile ? "horizontal" : "vertical"}>
+                                    <ToggleButton value={0}>修為</ToggleButton>
+                                    <ToggleButton value={1}>時間</ToggleButton>
+                                </ToggleButtonGroup>
+                                {tableStopType ? <FormControl><Input value={tableTime} onChange={(e) => setTableTime(parseFloat(e.target.value))} type="number" endAdornment={"天"} /></FormControl> : <ExpSelector full={false} setData={setTableTierToStop} lock={true} tier={tier} level={level} process={process} />}
+                                後吃果子
+                            </Stack>
+                        </Collapse>
+                        <Stack p={!isMobile * 3} pt={3} sx={{"div": {display: "flex", justifyContent: "space-between"}}}>
+                            <Divider/>
+                            {[{label: "萬妖果(紅)基礎修為:", value: redFruitList[tier]}, {label: "靈氣球修為加成:", value: `*1.8 ${tableControl[2] ? "*1.5" : ""}`}, {label: "數量(每周):", value: `9 ${tableControl[0] ? "+6" : ""} ${tableControl[1] ? "+6" : ""}`}, {label: "靈湧機率:", value: `${tableChances[tableChance]}%`}, {label: "期望修為:", value: [0, 3].includes(tableType) ? `${formatNumber(tableSpeed)} / 周` : "請使用計算功能"}].map(({label, value}) => (<>
+                                <Box key={label}><Typography fontSize={isMobile ? "medium" : "x-large"} color={"textSecondary"}>{label}</Typography><Typography fontSize={isMobile ? "large" : "x-large"} color={"textSecondary"}>{value}</Typography></Box><Divider key={label + "-divider"}/>
+                            </>))}
+                        </Stack>
+                    </AccordionDetails>
+                    <AccordionActions>*預設所有等級已升滿 *一次過吃的時候會消耗所有萬妖果（會益出修為），不會因為達成完滿而剩下果實</AccordionActions>
+                </Accordion>
+
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "gold"}}}>
+                        納靈石
+                        <span>+{formatNumber(finalStone)}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack direction={isMobile ? "column" : "row"} alignItems={"center"} spacing={2}>
+                            <FormControl sx={{minWidth: 200, width: isMobile ? "100%" : "auto"}}>
+                                <InputLabel>納靈石等級</InputLabel>
+                                <Select value={stoneLevel} onChange={(e) => setStoneLevel(parseInt(e.target.value))} label="納靈石等級">
+                                    {STONE_SYSTEM.types.map((t) => <MenuItem key={t.id} value={t.id} sx={{ color: t.color }}>{t.name} ({(t.absorption * 100).toFixed(0)}%)</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                            <Typography variant="body2" color="textSecondary">基礎吸收率: {(STONE_SYSTEM.types[stoneLevel]?.absorption * 100).toFixed(0)}%</Typography>
+                        </Stack>
+                        <Divider sx={{ my: 2 }} />
+                        <FormControlLabel control={<Checkbox checked={stoneSealEnabled} onChange={(e, v) => setStoneSealEnabled(v)} />} label="啟用納靈印" />
+                        {stoneSealEnabled && (
+                            <Stack spacing={2} mt={2}>
+                                <Stack direction={isMobile ? "column" : "row"} alignItems={"center"} spacing={2}>
+                                    <FormControl sx={{minWidth: 200, width: isMobile ? "100%" : "auto"}}>
+                                        <InputLabel>納靈印品質</InputLabel>
+                                        <Select value={stoneQuality} onChange={(e) => setStoneQuality(parseInt(e.target.value))} label="納靈印星級">
+                                            <MenuItem value={0}>2星 ({(stoneQualityList[0] * 100).toFixed(0)}%)</MenuItem>
+                                            <MenuItem value={1}>3星 ({(stoneQualityList[1] * 100).toFixed(0)}%)</MenuItem>
+                                            <MenuItem value={2}>4星 ({(stoneQualityList[2] * 100).toFixed(0)}%)</MenuItem>
+                                            <MenuItem value={3}>5星 ({(stoneQualityList[3] * 100).toFixed(0)}%)</MenuItem>
+                                            <MenuItem value={4}>覺醒 ({(stoneQualityList[4] * 100).toFixed(0)}%)</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Typography variant="body2" color="textSecondary">星級效果: ×{((stoneQualityList[stoneQuality] || 0) * 100).toFixed(0)}%</Typography>
+                                </Stack>
+                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                    <FormControlLabel control={<Checkbox checked={stoneForgeEnabled} onChange={(e, v) => setStoneForgeEnabled(v)} />} label="鍛靈① - 繼承修煉速度" />
+                                    {stoneForgeEnabled && <TextField label="吸收率加成" type="number" value={stoneForgeAbsorption} onChange={(e) => setStoneForgeAbsorption(parseFloat(e.target.value) || 0)} sx={{ width: 130 }} InputProps={{ endAdornment: <span>%</span> }} inputProps={{ step: 0.1, min: 0 }} />}
+                                </Stack>
+                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                    <FormControlLabel control={<Checkbox checked={stoneForgeMultiplierEnabled} onChange={(e, v) => setStoneForgeMultiplierEnabled(v)} />} label="鍛靈② - 靈氣吸收提升" />
+                                    {stoneForgeMultiplierEnabled && <TextField label="倍率" type="number" value={stoneForgeMultiplier} onChange={(e) => setStoneForgeMultiplier(parseFloat(e.target.value) || 1)} sx={{ width: 130 }} InputProps={{ endAdornment: <span>×</span> }} inputProps={{ step: 0.01, min: 0 }} />}
+                                </Stack>
+                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                    <TextField label="額外收益" type="number" value={stoneSealPercent} onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)} sx={{ width: 150 }} InputProps={{ endAdornment: <span>%</span> }} inputProps={{ step: 0.1, min: 0 }} />
+                                    <Typography variant="body2" color="textSecondary">倍率: ×{(1 + stoneSealPercent / 100).toFixed(2)}</Typography>
+                                </Stack>
+                            </Stack>
+                        )}
+                        <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
+                            <Typography variant="body2" color="textSecondary">當前納靈石加成計算：</Typography>
+                            <Typography variant="body2">
+                                {(() => {
+                                    const base = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
+                                    const quality = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+                                    const forge1 = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+                                    const forge2 = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+                                    const seal = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+                                    const totalPercent = base * (1 + quality + forge1) * forge2 * (1 + seal) * 100;
+                                    return (
+                                        <>
+                                            基礎吸收率: {(base * 100).toFixed(0)}%
+                                            {stoneSealEnabled && (
+                                                <>
+                                                    <br />納靈印星級: +{(quality * 100).toFixed(0)}%
+                                                    {stoneForgeEnabled && ` + ${(forge1 * 100).toFixed(1)}% (鍛靈①)`}
+                                                    {stoneForgeMultiplierEnabled && ` × ${forge2.toFixed(2)} (鍛靈②)`}
+                                                    {stoneSealPercent > 0 && ` × ${(1 + seal).toFixed(2)} (額外收益)`}
+                                                    <br />有效吸收率: {(base * (1 + quality + forge1) * 100).toFixed(2)}%
+                                                </>
+                                            )}
+                                            {!stoneSealEnabled && (<><br /><span style={{ color: 'gray' }}>納靈印未啟用</span></>)}
+                                            <br /><strong>總加成: {totalPercent.toFixed(2)}%{!stoneSealEnabled && ' (僅納靈石)'}</strong>
+                                        </>
+                                    );
+                                })()}
+                            </Typography>
+                        </Stack>
+                    </AccordionDetails>
+                </Accordion>
+
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "red"}}}>
+                        至寶
+                        <span>≈+{formatNumber(finalGod)}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"} spacing={2}>
+                            {["星海瓶", "雙星鏡"].map((t, i) => (
+                                <>
+                                    <Stack alignItems={"center"} width={"100%"} p={!isMobile * 3} spacing={1}>
+                                        <Checkbox checked={gods[i][0] >= 0} onChange={(e, v) => { let newGods = Array.from(gods); newGods[i][0] = v ? 0 : -1; if (i === 0 && v === false) { newGods[1][0] = -1; } if (i === 1 && v === true && gods[0][0] === -1) { newGods[0][0] = 0; } setGods(newGods); }} />{t}
+                                        <Rating disabled={gods[i][0] < 0} value={gods[i][0]} onChange={(e, v) => { let newGods = Array.from(gods); newGods[i][0] = v === null ? 0 : v; setGods(newGods); }} min={0} />
+                                        <Stack direction={"row"} alignItems={"baseline"}><Box sx={{width: 10, height: 10, backgroundColor: "red", borderRadius: 100}}/>x{godDay[i]} / 天</Stack>
+                                        {!i ? <Input value={gods[i][1]} onChange={(e) => { let newGods = Array.from(gods); newGods[i][1] = parseFloat(e.target.value === "" ? 0 : e.target.value); setGods(newGods); }} endAdornment={"萬"} type={"number"} min={0} sx={{width: 80}} /> : <FormControlLabel checked={gods[i][2]} control={<Checkbox size={"small"}/>} label={"幻化"} onChange={(e, v) => { let newGods = Array.from(gods); newGods[i][2] = v; setGods(newGods); }} />}
+                                        <Typography color={"error"}>≈+ {formatNumber(godSpeed[i])} / 天</Typography>
+                                    </Stack>
+                                    <Divider flexItem orientation={isMobile ? "horizontal" : "vertical"} />
+                                </>
+                            ))}
+                        </Stack>
+                    </AccordionDetails>
+                    <AccordionActions><FormControlLabel checked={godDoubles} control={<Checkbox/>} label={"計算雙倍機會 (15%)"} onChange={(e, v) => setGodDoubles(v)} /></AccordionActions>
+                </Accordion>
+
+                <Accordion sx={{width: "100%"}}>
+                    <AccordionSummary expandIcon={<ExpandMore/>} sx={{"*": {color: "grey"}}}>
+                        輔修相關
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <Stack spacing={2} alignItems="center">
+                                    <FormControlLabel control={<Checkbox checked={furnaceEnabled} onChange={(e, v) => setFurnaceEnabled(v)} />} label="紫闕合道爐" sx={{width: "100%", justifyContent: "center"}} />
+                                    {furnaceEnabled && (
+                                        <>
+                                            <FormControl sx={{minWidth: 150, width: isMobile ? "100%" : "auto"}}>
+                                                <InputLabel>合道爐品質</InputLabel>
+                                                <Select value={furnaceQuality} onChange={(e) => setFurnaceQuality(parseInt(e.target.value))} label="合道爐品質">
+                                                    <MenuItem value={0}>2星 (7%)</MenuItem>
+                                                    <MenuItem value={1}>3星 (11%)</MenuItem>
+                                                    <MenuItem value={2}>4星 (15%)</MenuItem>
+                                                    <MenuItem value={3}>5星 (19%)</MenuItem>
+                                                    <MenuItem value={4}>覺醒 (20%)</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                                <FormControlLabel control={<Checkbox checked={furnaceForge1Enabled} onChange={(e, v) => setFurnaceForge1Enabled(v)} />} label="鍛靈① +" />
+                                                {furnaceForge1Enabled && <TextField label="加成" type="number" value={furnaceForge1Percent} onChange={(e) => setFurnaceForge1Percent(parseFloat(e.target.value) || 0)} sx={{ width: 100 }} InputProps={{ endAdornment: <span>%</span> }} inputProps={{ step: 0.01, min: 0 }} />}
+                                            </Stack>
+                                            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                                <FormControlLabel control={<Checkbox checked={furnaceForge2Enabled} onChange={(e, v) => setFurnaceForge2Enabled(v)} />} label="鍛靈② ×" />
+                                                {furnaceForge2Enabled && <TextField label="倍率" type="number" value={furnaceForge2Multiplier} onChange={(e) => setFurnaceForge2Multiplier(parseFloat(e.target.value) || 1)} sx={{ width: 100 }} InputProps={{ endAdornment: <span>×</span> }} inputProps={{ step: 0.01, min: 0 }} />}
+                                            </Stack>
+                                            <Stack p={2} sx={{ backgroundColor: 'rgba(156,39,176,0.1)', borderRadius: 1, width: "100%" }}>
+                                                <Typography variant="body2" color="secondary">當前合道爐加成：</Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    品質: +{((furnaceQualityList[furnaceQuality] || 0) * 100).toFixed(0)}%
+                                                    {furnaceForge1Enabled && ` + ${furnaceForge1Percent.toFixed(2)}% (鍛靈①)`}
+                                                    {furnaceForge2Enabled && ` × ${furnaceForge2Multiplier.toFixed(2)} (鍛靈②)`}
+                                                    <br /><strong style={{ color: '#ce93d8' }}>
+                                                        總加成: {(((furnaceQualityList[furnaceQuality] || 0) + (furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0)) * (furnaceForge2Enabled ? furnaceForge2Multiplier : 1) * 100).toFixed(2)}%
+                                                    </strong>
+                                                </Typography>
+                                                <Typography variant="body2" color="secondary">輔修修煉速度: {formatNumber(purpleFurnaceSpeedDisplay)} / 周天</Typography>
+                                            </Stack>
+                                        </>
+                                    )}
+                                </Stack>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Stack spacing={2} alignItems="center">
+                                    <FormControlLabel control={<Checkbox checked={nichenzhuEnabled} onChange={(e, v) => setNichenzhuEnabled(v)} />} label="逆塵珠" sx={{width: "100%", justifyContent: "center"}} />
+                                    {nichenzhuEnabled && (
+                                        <>
+                                            <Rating disabled={!nichenzhuEnabled} value={nichenzhuStars} onChange={(e, v) => setNichenzhuStars(v === null ? 0 : v)} min={0} max={5} size="large" />
+                                            <Stack spacing={1} alignItems="center">
+                                                <Typography variant="body2" color="textSecondary">能量上限: {nichenzhuEnergyMax} 點</Typography>
+                                                <Typography variant="body2" color="textSecondary">每日恢復: {Math.round(nichenzhuRecoveryRate)} 點/天</Typography>
+                                                <Typography variant="body2" color="textSecondary">每次消耗: {nichenzhuEnergyCost} 點</Typography>
+                                                <Typography variant="body2" color="textSecondary">
+                                                    每次收益: {nichenzhuStars >= 1 ? '120' : '100'} 周天輔修經驗
+                                                    {nichenzhuStars >= 1 && ' (⭐1星以上+20%)'}
+                                                </Typography>
+                                                <Typography variant="body2" color="textSecondary">每日可使用: {nichenzhuDailyUses} 次</Typography>
+                                                <Typography variant="body2" color="success.main">每日收益: {formatNumber(nichenzhuDailyGain)} 修為</Typography>
+                                            </Stack>
+                                            <FormControlLabel control={<Checkbox checked={nichenzhuTransform} onChange={(e, v) => setNichenzhuTransform(v)} size="small" />} label="幻化" disabled={!nichenzhuEnabled} />
+                                            <Typography variant="caption" color="textSecondary">
+                                                {nichenzhuStars === 5 && '⭐五星: 消耗 -10%'}
+                                                {nichenzhuTransform && ' ✦幻化: 消耗 -1點'}
+                                                {nichenzhuStars === 5 && nichenzhuTransform && ' → 最低8點/次'}
+                                            </Typography>
+                                        </>
+                                    )}
+                                </Stack>
+                            </Grid>
+                        </Grid>
+                    </AccordionDetails>
+                </Accordion>
+            </Box>
+
+            <Stack spacing={1}>
+                <Typography variant={isMobile ? "h6" : "h5"}>
+                    修煉速度: {Math.round(speed * 100) / 100} / 周天
                 </Typography>
-                <Typography variant={"h4"}> / 天</Typography>
-                (估算)
+                {furnaceEnabled && (
+                    <Typography variant={isMobile ? "h6" : "h5"} color="secondary">
+                        輔修修煉速度: {formatNumber(purpleFurnaceSpeedDisplay)} / 周天
+                    </Typography>
+                )}
+                <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"}>
+                    <div style={{color: "white"}}>{formatNumber(baseSpeed)}</div>
+                    <div style={{color: "lightgreen"}}>+{formatNumber(extraSpeed)}</div>
+                    <div style={{color: "orange"}}>+{formatNumber(finalBreathe)}</div>
+                    <div style={{color: "magenta"}}>+{formatNumber(finalMed)}</div>
+                    <div style={{color: "lightblue"}}>+{formatNumber(finalTable)}</div>
+                    <div style={{color: "gold"}}>+{formatNumber(finalStone)}</div>
+                    <div style={{color: "red"}}>≈+{formatNumber(finalGod)}</div>
+                </Stack>
+                <Stack direction={isMobile ? "column" : "row"} justifyContent={"center"} alignItems={"center"}>
+                    當前境界
+                    <Typography variant={"h4"}>總修煉速度:</Typography>
+                    <Typography variant={"h4"}>
+                        <AnimatedNumbers 
+                            animateToNumber={baseSpeed + extraSpeed + finalBreathe + finalMed + finalStone + finalTable + finalGod} 
+                            includeComma 
+                            transitions={(index) => ({ type: "spring", duration: index / 10 })} 
+                        />
+                    </Typography>
+                    <Typography variant={"h4"}> / 天</Typography>
+                    (估算)
+                </Stack>
             </Stack>
 
+            <Stack alignItems={"center"}>
+                <FormGroup row>
+                    {chartLs.map((i, j) => <FormControlLabel color={i[2]} checked={cal[j]} control={<Checkbox sx={{"svg": {color: i[2]}}}/>} label={i[1]} onChange={(e, v) => { let newCal = Array.from(cal); newCal[j] = v; setCal(newCal); }} key={i[0]} />)}
+                </FormGroup>
+            </Stack>
+
+            <Stack direction={"row"} alignItems={"center"} spacing={2}>
+                <ColorButton onClick={() => calc({tier, level, process, exp}, subProcess, thirdProcess)} variant="outlined" size={"large"} fullWidth>計算♡</ColorButton>
+                <IconButton onClick={() => setStopSetDialog(true)}><Settings/></IconButton>
+                <Dialog open={stopSetDialog} onClose={() => setStopSetDialog(false)} fullWidth maxWidth={"xs"}>
+                    <DialogTitle>停止模擬的時間</DialogTitle>
+                    <DialogContent>
+                        <Accordion expanded={stopType === 0}>
+                            <AccordionSummary onClick={() => setStopType(0)}>
+                                <Stack direction={"row"} alignItems={"center"} spacing={1}>
+                                    <Checkbox checked={stopType === 0} sx={{p: 0}}/>
+                                    <Typography>到達後境界停止</Typography>
+                                </Stack>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                                <RadioGroup row value={stopLevel} onChange={(e, v) => setStopLevel(parseInt(v))}>
+                                    {Object.entries(buffs).map(([name, color], i) => <FormControlLabel value={i} sx={{color: color}} disabled={i > 0 ? dir !== 0 : false} control={<Radio size={"small"}/>} label={name} key={name} />)}
+                                </RadioGroup>
+                            </AccordionDetails>
+                        </Accordion>
+                        <Accordion expanded={stopType === 1}>
+                            <AccordionSummary onClick={() => setStopType(1)}>
+                                <Stack direction={"row"} alignItems={"center"} spacing={1}>
+                                    <Checkbox checked={stopType === 1} sx={{p: 0}}/>
+                                    <Typography>到達時間後停止</Typography>
+                                </Stack>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                                <OutlinedInput endAdornment={"天"} fullWidth value={stopTime} type={"number"} onBlur={() => isNaN(stopTime) ? setStopTime(0) : null} min={1} onChange={e => setStopTime(parseFloat(e.target.value))} />
+                            </AccordionDetails>
+                        </Accordion>
+                    </DialogContent>
+                </Dialog>
+            </Stack>
+
+            {finalResults && <ResultsPanel results={finalResults} />}
+            {record.length !== 0 && <DataDisplay final={final} fullTime={fullTime} counters={counters} record={record} stopType={stopType} />}
+            <Accordion>
+                <AccordionSummary expandIcon={<ExpandMore/>}>Logs</AccordionSummary>
+                <AccordionDetails>
+                    {logs.map(i => <p key={i} style={{margin: 0}}>{i}</p>)}
+                </AccordionDetails>
+            </Accordion>
         </Stack>
-
-
-        <Stack alignItems={"center"}>
-            <FormGroup row>
-                {chartLs.map((i, j) => <FormControlLabel
-                    color={i[2]}
-                    checked={cal[j]}
-                    control={<Checkbox sx={{"svg": {color: i[2]}}}/>} label={i[1]}
-                    onChange={(e, v) => {
-                        let newCal = Array.from(cal);
-                        newCal[j] = v;
-                        setCal(newCal);
-                    }}
-                    key={i[0]}
-                />)}
-            </FormGroup>
-        </Stack>
-        <Stack direction={"row"} alignItems={"center"} spacing={2}>
-
-            <ColorButton
-                onClick={() => calc({tier, level, process, exp}, subProcess, thirdProcess)}
-                variant="outlined"
-                size={"large"}
-                fullWidth
-            >計算♡</ColorButton>
-
-            <IconButton onClick={() => setStopSetDialog(true)}>
-                <Settings/>
-
-            </IconButton>
-            <Dialog
-                open={stopSetDialog}
-                onClose={() => setStopSetDialog(false)}
-                fullWidth
-                maxWidth={"xs"}
-            >
-                <DialogTitle>停止模擬的時間</DialogTitle>
-                <DialogContent>
-                    <Accordion expanded={stopType === 0}>
-                        <AccordionSummary onClick={() => setStopType(0)}>
-                            <Stack direction={"row"} alignItems={"center"} spacing={1}>
-                                <Checkbox checked={stopType === 0} sx={{p: 0}}/>
-                                <Typography>到達後境界停止</Typography>
-                            </Stack>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <RadioGroup row value={stopLevel} onChange={(e, v) => setStopLevel(parseInt(v))}>
-                                {Object.entries(buffs).map(([name, color], i) => <FormControlLabel
-                                    value={i} sx={{color: color}} disabled={i > 0 ? dir !== 0 : false}
-                                    control={<Radio size={"small"}/>}
-                                    label={name} key={name}
-                                />)}
-                            </RadioGroup>
-                        </AccordionDetails>
-                    </Accordion>
-                    <Accordion expanded={stopType === 1}>
-                        <AccordionSummary onClick={() => setStopType(1)}>
-                            <Stack direction={"row"} alignItems={"center"} spacing={1}>
-                                <Checkbox checked={stopType === 1} sx={{p: 0}}/>
-                                <Typography>到達時間後停止</Typography>
-                            </Stack>
-                            
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <OutlinedInput
-                                endAdornment={"天"}
-                                fullWidth
-                                value={stopTime}
-                                type={"number"}
-                                onBlur={() => isNaN(stopTime) ? setStopTime(0) : null}
-                                min={1}
-                                onChange={e => setStopTime(parseFloat(e.target.value))}
-                            />
-                        </AccordionDetails>
-                    </Accordion>
-                </DialogContent>
-            </Dialog>
-
-        </Stack>
-        {finalResults && <ResultsPanel results={finalResults} />}
-
-        {record.length !== 0 && <DataDisplay
-            final={final}
-            fullTime={fullTime}
-            counters={counters}
-            record={record}
-            stopType={stopType}
-        />}
-
-        <Accordion>
-            <AccordionSummary expandIcon={<ExpandMore/>}>Logs</AccordionSummary>
-            <AccordionDetails>
-                {logs.map(i => <p key={i} style={{margin: 0}}>{i}</p>)}
-            </AccordionDetails>
-        </Accordion>
-
-
-    </Stack>
     );
 }
