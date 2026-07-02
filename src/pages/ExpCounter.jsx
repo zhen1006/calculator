@@ -340,6 +340,14 @@ export default function ExpCounter() {
         const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
         const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
 
+        // 納靈石倍率（新公式）
+        const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
+        const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+        const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+        const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+        const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+        const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus) * (1 + sealBonus);
+
         const checkIsPerfectInner = (tier, level, process, exp) => {
             if (level !== 2) return false;
             const tierExpData = exps[tier]?.[2];
@@ -397,22 +405,7 @@ export default function ExpCounter() {
             const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
             const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
             const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
-            const stoneType = STONE_SYSTEM.types[stoneLevel];
-            const baseAbsorption = stoneType ? stoneType.absorption : 0;
-            const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
-            const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
-            const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-            const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-            const totalStoneMultiplier = baseAbsorption *
-                (1 + qualityBonus + forge1Bonus) *
-                forge2Multiplier *
-                (1 + sealBonus);
-            let st1 = (speed1 + extra) * totalStoneMultiplier;
-            st1 *= cal[5];
-            inc += speed1 + extra + st1;
-            sum.base += speed1;
-            sum.extra += extra;
-            sum.stone += st1;
+
             if (furnaceEnabled) {
                 PS[1].exp += purpleFurnaceSpeed;
             }
@@ -437,6 +430,12 @@ export default function ExpCounter() {
                     counter.doubles += 1;
                 }
 
+                // ---- 納靈石一次性收益（每日） ----
+                const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
+                inc += stoneDaily;
+                sum.stone += stoneDaily;
+
+                // ---- 逆塵珠 ----
                 if (nichenzhuEnabled) {
                     const maxDailyUses = 20;
                     const currentDay = Math.floor(vd / 10800);
@@ -532,6 +531,11 @@ export default function ExpCounter() {
                     god: 0
                 };
             }
+            // 基礎修煉（持續）
+            inc += speed1 + extra;
+            sum.base += speed1;
+            sum.extra += extra;
+
             PS[now].exp += inc;
             if (PS[now].exp >= exps[PS[now].tier][PS[now].level][PS[now].process]) {
                 PS[now].exp -= exps[PS[now].tier][PS[now].level][PS[now].process];
@@ -797,17 +801,16 @@ export default function ExpCounter() {
 
     const godSpeed = [godSpeed0, godSpeed1];
 
-    const stoneTypeDisplay = STONE_SYSTEM.types[stoneLevel];
-    const baseAbsorptionDisplay = stoneTypeDisplay ? stoneTypeDisplay.absorption : 0;
+    // 納靈石倍率（新公式）
+    const baseAbsorptionDisplay = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
     const sealBonusDisplay = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-    const totalStoneMultiplierDisplay = baseAbsorptionDisplay *
-        (1 + qualityBonusDisplay + forge1BonusDisplay) *
-        forge2MultiplierDisplay *
-        (1 + sealBonusDisplay);
-    const finalStone = Math.round((air * (finalEfficiency / 100)) * totalStoneMultiplierDisplay / 8 * 60 * 60 * 24 * 100) / 100;
+    const stoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) * forge2MultiplierDisplay * (1 + qualityBonusDisplay) * (1 + sealBonusDisplay);
+
+    // 每日收益
+    const stoneSpeedPerDay = air * (finalEfficiency / 100) * stoneMultiplierDisplay * 10800 * cal[5];
 
     const furnaceQualityBonus = furnaceQualityList[furnaceQuality] || 0;
     const furnaceForge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
@@ -826,7 +829,6 @@ export default function ExpCounter() {
     const breatheSpeedPerDay = breatheSpeed;
     const medSpeedPerDay = medSpeed;
     const tableSpeedPerDay = tableSpeed / 7;
-    const stoneSpeedPerDay = finalStone * 10800;
     const godSpeedPerDay = godSpeed.reduce((a, b) => a + b);
 
     const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay;
@@ -1394,13 +1396,13 @@ export default function ExpCounter() {
 
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
-                        吐納
+                        吐吶
                         <span>+{Math.round(breatheSpeedPerDay * 100) / 100}</span>
                     </AccordionSummary>
                     <AccordionDetails>
                         <Stack alignItems={"center"} justifyContent={"center"} spacing={2}>
                             <Typography variant={isMobile ? "h6" : "h2"} sx={{ color: "rgba(255,255,255,0.5)" }}>
-                                拒絕計算吐納 從你我做起
+                                抗拒計算吐納 從你我做起
                             </Typography>
                             <Typography variant="caption" color="textSecondary" sx={{ mb: 1 }}>
                                 *請在總加成基礎上加100%
@@ -1735,7 +1737,7 @@ export default function ExpCounter() {
                                     const forge1 = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
                                     const forge2 = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
                                     const seal = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-                                    const totalPercent = base * (1 + quality + forge1) * forge2 * (1 + seal) * 100;
+                                    const totalPercent = (base + forge1) * forge2 * (1 + quality) * (1 + seal) * 100;
                                     return (
                                         <>
                                             基礎吸收率: {(base * 100).toFixed(0)}%
@@ -1745,7 +1747,7 @@ export default function ExpCounter() {
                                                     {stoneForgeEnabled && ` + ${(forge1 * 100).toFixed(1)}% (鍛靈①)`}
                                                     {stoneForgeMultiplierEnabled && ` × ${forge2.toFixed(2)} (鍛靈②)`}
                                                     {stoneSealPercent > 0 && ` × ${(1 + seal).toFixed(2)} (額外收益)`}
-                                                    <br />有效吸收率: {(base * (1 + quality + forge1) * 100).toFixed(2)}%
+                                                    <br />有效吸收率: {((base + forge1) * forge2 * (1 + quality) * 100).toFixed(2)}%
                                                 </>
                                             )}
                                             {!stoneSealEnabled && (<><br /><span style={{ color: 'gray' }}>納靈印未啟用</span></>)}
