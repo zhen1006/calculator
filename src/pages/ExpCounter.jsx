@@ -106,7 +106,6 @@ export default function ExpCounter() {
             stoneForgeMultiplierEnabled,
             stoneForgeMultiplier,
             stoneSealEnabled,
-            stoneSealPercent,
             furnaceEnabled,
             furnaceQuality,
             furnaceForge1Enabled,
@@ -169,7 +168,6 @@ export default function ExpCounter() {
                 stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
                 stoneForgeMultiplier: setStoneForgeMultiplier,
                 stoneSealEnabled: setStoneSealEnabled,
-                stoneSealPercent: setStoneSealPercent,
                 furnaceEnabled: setFurnaceEnabled,
                 furnaceQuality: setFurnaceQuality,
                 furnaceForge1Enabled: setFurnaceForge1Enabled,
@@ -340,13 +338,11 @@ export default function ExpCounter() {
         const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
         const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
 
-        // 納靈石倍率（新公式）
         const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
         const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
         const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
         const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-        const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-        const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus) * (1 + sealBonus);
+        const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
 
         const checkIsPerfectInner = (tier, level, process, exp) => {
             if (level !== 2) return false;
@@ -430,12 +426,12 @@ export default function ExpCounter() {
                     counter.doubles += 1;
                 }
 
-                // ---- 納靈石一次性收益（每日） ----
+                // 納靈石一次性收益（每日）
                 const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
                 inc += stoneDaily;
                 sum.stone += stoneDaily;
 
-                // ---- 逆塵珠 ----
+                // 逆塵珠
                 if (nichenzhuEnabled) {
                     const maxDailyUses = 20;
                     const currentDay = Math.floor(vd / 10800);
@@ -479,12 +475,13 @@ export default function ExpCounter() {
                     }
                 }
 
-                const breatheBaseNow = customBreatheBase ? customBreatheValue : breatheList[PS[0].tier][0];
-                const breatheSpeedNow = cal[2] * breatheBaseNow * breatheBuf / 100 * breatheTime * 1.9;
+                // 吐納（使用頂層計算的 breatheSpeed，已包含自訂邏輯）
+                const breatheSpeedNow = breatheSpeed;
                 inc += breatheSpeedNow;
                 sum.breathe += breatheSpeedNow;
                 counter.breathe += breatheTime;
 
+                // 丹藥
                 [...Array(5).keys()].forEach((i) => {
                     let med = cal[3] * medExp[i] * medAmount[i] * 10000;
                     inc += med;
@@ -492,6 +489,7 @@ export default function ExpCounter() {
                     counter.med[i] += cal[3] * medAmount[i];
                 })
 
+                // 化靈臺
                 if (cal[4]) {
                     let day = ((new Date()).getDay() + Math.floor(vd / 10800) - 1) % 7;
                     if ([3, 5, 0].includes(day)) {
@@ -687,7 +685,6 @@ export default function ExpCounter() {
     const [stoneForgeMultiplierEnabled, setStoneForgeMultiplierEnabled] = useState(false);
     const [stoneForgeMultiplier, setStoneForgeMultiplier] = useState(1.15);
     const [stoneSealEnabled, setStoneSealEnabled] = useState(false);
-    const [stoneSealPercent, setStoneSealPercent] = useState(0);
     const [furnaceEnabled, setFurnaceEnabled] = useState(false);
     const [furnaceQuality, setFurnaceQuality] = useState(3);
     const [furnaceForge1Enabled, setFurnaceForge1Enabled] = useState(false);
@@ -744,6 +741,7 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
+    // ---- 核心計算 ----
     const air = tier === 1 ? voidAir : othersAir;
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
@@ -775,14 +773,18 @@ export default function ExpCounter() {
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
 
+    // ---- 吐納（新邏輯） ----
     const breatheBase = customBreatheBase ? customBreatheValue : breatheList[tier][0];
-    const breatheSpeed = cal[2] * breatheBase * breatheBuf / 100 * breatheTime * 1.9;
+    const breatheSpeed = cal[2] ? (customBreatheBase ? customBreatheValue : breatheBase * breatheBuf / 100 * breatheTime * 1.9) : 0;
 
+    // ---- 丹藥 ----
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
 
+    // ---- 化靈臺 ----
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
 
+    // ---- 至寶 ----
     let conversionFactor = 1;
     if (starSeaConversion === 1) conversionFactor = 0.8;
     else if (starSeaConversion === 2) conversionFactor = 0.95;
@@ -798,41 +800,39 @@ export default function ExpCounter() {
     const mirrorTimes = cal[6] ? mirrorRecovery / useEnergy : 0;
     const mirrorEffectiveTimes = mirrorTimes * (1 + (mirrorDouble && gods[1][0] === 5 ? 0.15 : 0));
     const godSpeed1 = mirrorEffectiveTimes * gods[1][1] * 10000;
-
     const godSpeed = [godSpeed0, godSpeed1];
 
-    // 納靈石倍率（新公式）
+    // ---- 納靈石（新公式，無額外收益） ----
     const baseAbsorptionDisplay = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-    const sealBonusDisplay = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-    const stoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) * forge2MultiplierDisplay * (1 + qualityBonusDisplay) * (1 + sealBonusDisplay);
+    const stoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) * forge2MultiplierDisplay * (1 + qualityBonusDisplay);
+    // 修煉周天 = air * (finalEfficiency / 100)  即每秒獲得修為（周天）
+    const zhouTian = air * (finalEfficiency / 100);
+    const stoneSpeedPerDay = zhouTian * stoneMultiplierDisplay * 10800 * cal[5];
 
-    // 每日收益
-    const stoneSpeedPerDay = air * (finalEfficiency / 100) * stoneMultiplierDisplay * 10800 * cal[5];
-
+    // ---- 合道爐 ----
     const furnaceQualityBonus = furnaceQualityList[furnaceQuality] || 0;
     const furnaceForge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
     const furnaceForge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
     const furnaceTotalBonus = (furnaceQualityBonus + furnaceForge1) * furnaceForge2;
+    const purpleFurnaceSpeedDisplay = furnaceEnabled ? Math.round(speed * furnaceTotalBonus * 100) / 100 : 0;
 
-    const purpleFurnaceSpeedDisplay = furnaceEnabled ? (() => {
-        return Math.round(speed * furnaceTotalBonus * 100) / 100;
-    })() : 0;
-
+    // ---- 逆塵珠基礎 ----
     const nichenBaseSpeed = air * ((effectiveSpeed + totalPerfectionBonus) / 100);
     const nichenGainPerUse = nichenBaseSpeed * (1 + furnaceTotalBonus) * (nichenzhuStars >= 1 ? 120 : 100);
 
+    // ---- 每日總收益 ----
     const baseSpeedPerDay = baseSpeed * 10800;
     const extraSpeedPerDay = extraSpeed * 10800;
     const breatheSpeedPerDay = breatheSpeed;
     const medSpeedPerDay = medSpeed;
     const tableSpeedPerDay = tableSpeed / 7;
     const godSpeedPerDay = godSpeed.reduce((a, b) => a + b);
-
     const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay;
 
+    // ---- 逆塵珠 useEffect ----
     useEffect(() => {
         if (nichenzhuEnabled) {
             const config = nichenzhuConfig[nichenzhuStars];
@@ -1006,6 +1006,7 @@ export default function ExpCounter() {
         );
     };
 
+    // ---- Render ----
     return (
         <Stack spacing={2} sx={{ my: 2 }}>
             <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1075,6 +1076,7 @@ export default function ExpCounter() {
             </Stack>
 
             <Box sx={{ "*": { "*.MuiAccordionSummary-content": { justifyContent: "space-between" } } }}>
+                {/* 修煉速度 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "white" } }}>
                         修煉速度
@@ -1130,6 +1132,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 額外吸收率 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
                         額外吸收率
@@ -1394,6 +1397,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 吐納 - 已修改二選一 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
                         吐吶
@@ -1405,7 +1409,7 @@ export default function ExpCounter() {
                                 抗拒計算吐納 從你我做起
                             </Typography>
                             <Typography variant="caption" color="textSecondary" sx={{ mb: 1 }}>
-                                *請在總加成基礎上加100%
+                                {customBreatheBase ? "勾選後直接輸入每日總修為" : "*請在總加成基礎上加100%"}
                             </Typography>
                             <Stack
                                 px={!isMobile ? 10 : 0}
@@ -1417,39 +1421,45 @@ export default function ExpCounter() {
                             >
                                 <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
                                     <Typography variant="body1" fontWeight="bold">
-                                        {breatheBase}
+                                        {customBreatheBase ? "自訂" : breatheBase}
                                     </Typography>
-                                    <Typography variant="body2" color="textSecondary">吐納基礎修為</Typography>
+                                    <Typography variant="body2" color="textSecondary">
+                                        {customBreatheBase ? "每日總修為" : "吐納基礎修為"}
+                                    </Typography>
                                 </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
-                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Input
-                                        type={"number"}
-                                        sx={{ width: 80 }}
-                                        onChange={(e) => setBreatheBuf(parseFloat(e.target.value))}
-                                        variant={"standard"}
-                                        value={breatheBuf}
-                                        endAdornment={"%"}
-                                    />
-                                    <Typography variant="body2" color="textSecondary">吐納加成</Typography>
-                                </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
-                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Input
-                                        type={"number"}
-                                        sx={{ width: 80 }}
-                                        onChange={(e) => setBreatheTime(parseFloat(e.target.value))}
-                                        variant={"standard"}
-                                        value={breatheTime}
-                                        endAdornment={"次"}
-                                    />
-                                    <Typography variant="body2" color="textSecondary">吐納次數</Typography>
-                                </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
-                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Typography variant="body1" fontWeight="bold">1.9</Typography>
-                                    <Typography variant="body2" color="textSecondary">吐納爆擊</Typography>
-                                </Stack>
+                                {!customBreatheBase && (
+                                    <>
+                                        <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
+                                        <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                            <Input
+                                                type={"number"}
+                                                sx={{ width: 80 }}
+                                                onChange={(e) => setBreatheBuf(parseFloat(e.target.value))}
+                                                variant={"standard"}
+                                                value={breatheBuf}
+                                                endAdornment={"%"}
+                                            />
+                                            <Typography variant="body2" color="textSecondary">吐納加成</Typography>
+                                        </Stack>
+                                        <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
+                                        <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                            <Input
+                                                type={"number"}
+                                                sx={{ width: 80 }}
+                                                onChange={(e) => setBreatheTime(parseFloat(e.target.value))}
+                                                variant={"standard"}
+                                                value={breatheTime}
+                                                endAdornment={"次"}
+                                            />
+                                            <Typography variant="body2" color="textSecondary">吐納次數</Typography>
+                                        </Stack>
+                                        <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
+                                        <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                            <Typography variant="body1" fontWeight="bold">1.9</Typography>
+                                            <Typography variant="body2" color="textSecondary">吐納爆擊</Typography>
+                                        </Stack>
+                                    </>
+                                )}
                             </Stack>
                             <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="center" sx={{ mt: 2, width: "100%" }}>
                                 <FormControlLabel
@@ -1461,7 +1471,7 @@ export default function ExpCounter() {
                                         type="number"
                                         value={customBreatheValue}
                                         onChange={(e) => setCustomBreatheValue(parseFloat(e.target.value) || 0)}
-                                        label="基礎修為"
+                                        label="每日總修為"
                                         size="small"
                                         sx={{ width: 150 }}
                                         InputProps={{ endAdornment: "修為" }}
@@ -1472,6 +1482,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 丹藥 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "magenta" } }}>
                         丹藥
@@ -1516,6 +1527,7 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
+                {/* 化靈臺 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightblue" } }}>
                         化靈臺
@@ -1633,6 +1645,7 @@ export default function ExpCounter() {
                     <AccordionActions>*預設所有等級已升滿 *一次過吃的時候會消耗所有萬妖果（會益出修為），不會因為達成完滿而剩下果實</AccordionActions>
                 </Accordion>
 
+                {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
                         納靈石
@@ -1649,12 +1662,12 @@ export default function ExpCounter() {
                                 >
                                     {STONE_SYSTEM.types.map((t) =>
                                         <MenuItem key={t.id} value={t.id} sx={{ color: t.color }}>
-                                            {t.name} ({(t.absorption * 100).toFixed(0)}%)
+                                            {t.name} ({(t.absorption * 100).toFixed(1)}%)
                                         </MenuItem>
                                     )}
                                 </Select>
                             </FormControl>
-                            <Typography variant="body2" color="textSecondary">基礎吸收率: {(STONE_SYSTEM.types[stoneLevel]?.absorption * 100).toFixed(0)}%</Typography>
+                            <Typography variant="body2" color="textSecondary">基礎吸收率: {((STONE_SYSTEM.types[stoneLevel]?.absorption || 0) * 100).toFixed(1)}%</Typography>
                         </Stack>
                         <Divider sx={{ my: 2 }} />
                         <FormControlLabel
@@ -1671,14 +1684,14 @@ export default function ExpCounter() {
                                             onChange={(e) => setStoneQuality(parseInt(e.target.value))}
                                             label="納靈印星級"
                                         >
-                                            <MenuItem value={0}>2星 ({(stoneQualityList[0] * 100).toFixed(0)}%)</MenuItem>
-                                            <MenuItem value={1}>3星 ({(stoneQualityList[1] * 100).toFixed(0)}%)</MenuItem>
-                                            <MenuItem value={2}>4星 ({(stoneQualityList[2] * 100).toFixed(0)}%)</MenuItem>
-                                            <MenuItem value={3}>5星 ({(stoneQualityList[3] * 100).toFixed(0)}%)</MenuItem>
-                                            <MenuItem value={4}>覺醒 ({(stoneQualityList[4] * 100).toFixed(0)}%)</MenuItem>
+                                            <MenuItem value={0}>2星 ({(stoneQualityList[0] * 100).toFixed(1)}%)</MenuItem>
+                                            <MenuItem value={1}>3星 ({(stoneQualityList[1] * 100).toFixed(1)}%)</MenuItem>
+                                            <MenuItem value={2}>4星 ({(stoneQualityList[2] * 100).toFixed(1)}%)</MenuItem>
+                                            <MenuItem value={3}>5星 ({(stoneQualityList[3] * 100).toFixed(1)}%)</MenuItem>
+                                            <MenuItem value={4}>覺醒 ({(stoneQualityList[4] * 100).toFixed(1)}%)</MenuItem>
                                         </Select>
                                     </FormControl>
-                                    <Typography variant="body2" color="textSecondary">星級效果: ×{((stoneQualityList[stoneQuality] || 0) * 100).toFixed(0)}%</Typography>
+                                    <Typography variant="body2" color="textSecondary">星級效果: ×{((stoneQualityList[stoneQuality] || 0) * 100).toFixed(1)}%</Typography>
                                 </Stack>
                                 <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                                     <FormControlLabel
@@ -1714,18 +1727,7 @@ export default function ExpCounter() {
                                         />
                                     }
                                 </Stack>
-                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                                    <TextField
-                                        label="額外收益"
-                                        type="number"
-                                        value={stoneSealPercent}
-                                        onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)}
-                                        sx={{ width: 150 }}
-                                        InputProps={{ endAdornment: <span>%</span> }}
-                                        inputProps={{ step: 0.1, min: 0 }}
-                                    />
-                                    <Typography variant="body2" color="textSecondary">倍率: ×{(1 + stoneSealPercent / 100).toFixed(2)}</Typography>
-                                </Stack>
+                                {/* 額外收益已刪除 */}
                             </Stack>
                         )}
                         <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
@@ -1736,22 +1738,17 @@ export default function ExpCounter() {
                                     const quality = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
                                     const forge1 = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
                                     const forge2 = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-                                    const seal = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-                                    const totalPercent = (base + forge1) * forge2 * (1 + quality) * (1 + seal) * 100;
+                                    const totalPercent = (base + forge1) * forge2 * (1 + quality) * 100;
+                                    const zhouTianDisplay = zhouTian;
                                     return (
                                         <>
-                                            基礎吸收率: {(base * 100).toFixed(0)}%
-                                            {stoneSealEnabled && (
-                                                <>
-                                                    <br />納靈印星級: +{(quality * 100).toFixed(0)}%
-                                                    {stoneForgeEnabled && ` + ${(forge1 * 100).toFixed(1)}% (鍛靈①)`}
-                                                    {stoneForgeMultiplierEnabled && ` × ${forge2.toFixed(2)} (鍛靈②)`}
-                                                    {stoneSealPercent > 0 && ` × ${(1 + seal).toFixed(2)} (額外收益)`}
-                                                    <br />有效吸收率: {((base + forge1) * forge2 * (1 + quality) * 100).toFixed(2)}%
-                                                </>
-                                            )}
-                                            {!stoneSealEnabled && (<><br /><span style={{ color: 'gray' }}>納靈印未啟用</span></>)}
-                                            <br /><strong>總加成: {totalPercent.toFixed(2)}%{!stoneSealEnabled && ' (僅納靈石)'}</strong>
+                                            <strong>修煉周天 = {formatNumber(air)} × {formatNumber(finalEfficiency)}% = {formatNumber(zhouTianDisplay)}</strong>
+                                            <br />
+                                            吸收比例 = ({(base * 100).toFixed(1)}% + {(forge1 * 100).toFixed(1)}%) × {formatNumber(forge2, 2)} × (1 + {(quality * 100).toFixed(1)}%) = {totalPercent.toFixed(2)}%
+                                            <br />
+                                            每日收益 = {formatNumber(zhouTianDisplay)} × {totalPercent.toFixed(2)}% × 10800 = {formatNumber(stoneSpeedPerDay)}
+                                            <br />
+                                            <strong>總加成: {totalPercent.toFixed(2)}%</strong>
                                         </>
                                     );
                                 })()}
@@ -1760,6 +1757,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 至寶 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "red" } }}>
                         至寶
@@ -1871,6 +1869,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 輔修相關 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "grey" } }}>
                         輔修相關
@@ -1937,7 +1936,7 @@ export default function ExpCounter() {
                                             <Stack p={2} sx={{ backgroundColor: 'rgba(156,39,176,0.1)', borderRadius: 1, width: "100%" }}>
                                                 <Typography variant="body2" color="secondary">當前合道爐加成：</Typography>
                                                 <Typography variant="body2" color="textSecondary">
-                                                    品質: +{((furnaceQualityList[furnaceQuality] || 0) * 100).toFixed(0)}%
+                                                    品質: +{((furnaceQualityList[furnaceQuality] || 0) * 100).toFixed(1)}%
                                                     {furnaceForge1Enabled && ` + ${furnaceForge1Percent.toFixed(2)}% (鍛靈①)`}
                                                     {furnaceForge2Enabled && ` × ${furnaceForge2Multiplier.toFixed(2)} (鍛靈②)`}
                                                     <br /><strong style={{ color: '#ce93d8' }}>
