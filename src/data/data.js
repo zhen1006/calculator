@@ -25,7 +25,11 @@ const CULTIVATION_LEVELS = [
   { id: 0, name: "前期" },
   { id: 1, name: "中期" },
   { id: 2, name: "後期" },
+<<<<<<< HEAD
   { id: 3, name: "圓滿" }
+=======
+  { id: 3, name: "特殊" }
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
 ];
 
 // 修煉進度配置

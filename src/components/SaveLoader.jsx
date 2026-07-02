@@ -12,6 +12,7 @@ import {levelList, tierList} from "../data/data.js";
 import {toast} from "react-toastify";
 import {download} from "../data/functions.js";
 
+<<<<<<< HEAD
 export default function SaveLoader({save, load, relaod, value}) {
     const [updateCount, setUpdateCount] = useState(0);
     const fileInputRef = Array.from({length: 5}, () => useRef(null));
@@ -69,28 +70,50 @@ export default function SaveLoader({save, load, relaod, value}) {
         return parts.join(" ");
     };
 
+=======
+export default function SaveLoader({save, load}) {
+    const [updateCount, setUpdateCount] = useState(0);
+    const fileInputRef = Array.from({length: 5}, () => useRef(null));
+
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
     return (
         <Accordion>
             <AccordionSummary>存檔</AccordionSummary>
             <AccordionDetails>
                 <List>
                     {[...Array(5).keys()].map(i => {
+<<<<<<< HEAD
                         const data = getSaveData(i);
+=======
+                        let data = null;
+                        try {
+                            data = JSON.parse(localStorage.getItem(`data ${i}`));
+                        } catch (e) {
+                            data = null;
+                        }
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
                         return (
                             <ListItem
                                 key={i}
                                 sx={{
                                     "&:hover": { backgroundColor: "rgba(255,255,255,0.25)" },
                                     transition: "background-color ease-out 0.1s, background-color ease-out 0.5s",
+<<<<<<< HEAD
                                     flexDirection: "column",
                                     alignItems: "flex-start",
+=======
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
                                 }}
                                 secondaryAction={
                                     <>
                                         <IconButton color="success" onClick={() => { save(i); setUpdateCount(v => v + 1); }}>
                                             <Save />
                                         </IconButton>
+<<<<<<< HEAD
                                         <IconButton color="primary" disabled={!data} onClick={() => { load(i); }}>
+=======
+                                        <IconButton color="primary" disabled={!data} onClick={() => load(i)}>
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
                                             <InputOutlined />
                                         </IconButton>
                                         <IconButton color="error" disabled={!data} onClick={() => {
@@ -116,8 +139,12 @@ export default function SaveLoader({save, load, relaod, value}) {
                                                             const reader = new FileReader();
                                                             reader.onload = e => {
                                                                 try {
+<<<<<<< HEAD
                                                                     const parsedData = JSON.parse(e.target.result);
                                                                     save(i, parsedData);
+=======
+                                                                    save(i, JSON.parse(e.target.result));
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
                                                                     toast.success("已上傳");
                                                                     load(i);
                                                                     setUpdateCount(v => v + 1);
@@ -141,9 +168,13 @@ export default function SaveLoader({save, load, relaod, value}) {
                                 }
                             >
                                 <ListItemText
+<<<<<<< HEAD
                                     primary={`0${i + 1}. ${formatSaveName(data)}`}
                                     secondary={formatSaveDetail(data)}
                                     secondaryTypographyProps={{ sx: { fontSize: '0.75rem', color: 'text.secondary' } }}
+=======
+                                    primary={`0${i + 1}. ${!data ? "NO DATA" : `${tierList[data.tier]}${levelList[data.level]}${data.level === 3 ? "" : `${data.process}重`}`}`}
+>>>>>>> 3091d3657786ba31276672684014deafbfd6cc4d
                                 />
                             </ListItem>
                         );
