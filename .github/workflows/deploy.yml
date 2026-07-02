@@ -18,6 +18,9 @@ jobs:
         with:
           node-version: 18
       - run: npm install
+      # 修复 vite 执行权限（关键修复）
+      - name: Fix vite permission
+        run: chmod +x node_modules/.bin/vite
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
