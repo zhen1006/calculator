@@ -22,6 +22,8 @@ jobs:
       - name: Fix vite permission
         run: chmod +x node_modules/.bin/vite
       - run: npm run build
+      - name: List build output
+        run: ls -la docs/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
