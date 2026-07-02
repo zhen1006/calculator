@@ -106,6 +106,7 @@ export default function ExpCounter() {
             stoneForgeMultiplierEnabled,
             stoneForgeMultiplier,
             stoneSealEnabled,
+            stoneSealPercent,
             furnaceEnabled,
             furnaceQuality,
             furnaceForge1Enabled,
@@ -113,7 +114,8 @@ export default function ExpCounter() {
             furnaceForge2Enabled,
             furnaceForge2Multiplier,
             gods,
-            godDoubles,
+            mirrorDouble,
+            starSeaConversion,
             dir,
             subProcess,
             thirdProcess,
@@ -126,8 +128,8 @@ export default function ExpCounter() {
             nichenzhuEnabled,
             nichenzhuStars,
             nichenzhuTransform,
-            useCustomBreathe,
-            customBreatheBase
+            customBreatheBase,
+            customBreatheValue,
         };
         localStorage.setItem(`data ${i}`, JSON.stringify(saveList));
         toast.success("Saved!")
@@ -167,6 +169,7 @@ export default function ExpCounter() {
                 stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
                 stoneForgeMultiplier: setStoneForgeMultiplier,
                 stoneSealEnabled: setStoneSealEnabled,
+                stoneSealPercent: setStoneSealPercent,
                 furnaceEnabled: setFurnaceEnabled,
                 furnaceQuality: setFurnaceQuality,
                 furnaceForge1Enabled: setFurnaceForge1Enabled,
@@ -174,7 +177,8 @@ export default function ExpCounter() {
                 furnaceForge2Enabled: setFurnaceForge2Enabled,
                 furnaceForge2Multiplier: setFurnaceForge2Multiplier,
                 gods: setGods,
-                godDoubles: setGodDoubles,
+                mirrorDouble: setMirrorDouble,
+                starSeaConversion: setStarSeaConversion,
                 dir: setDir,
                 subProcess: setSubProcess,
                 thirdProcess: setThirdProcess,
@@ -187,8 +191,8 @@ export default function ExpCounter() {
                 nichenzhuEnabled: setNichenzhuEnabled,
                 nichenzhuStars: setNichenzhuStars,
                 nichenzhuTransform: setNichenzhuTransform,
-                useCustomBreathe: setUseCustomBreathe,
-                customBreatheBase: setCustomBreatheBase
+                customBreatheBase: setCustomBreatheBase,
+                customBreatheValue: setCustomBreatheValue,
             };
             Object.entries(setters).forEach(([key, setter]) => {
                 if (data[key] !== undefined) {
@@ -289,7 +293,7 @@ export default function ExpCounter() {
             stone: 0,
             god: 0,
         };
-        let godEnergy = [0, 0, 0];
+        let godEnergy = [0, 0];
         let chargeTime = 0;
         let fruitAmount = tableCount;
         let counter = {
@@ -325,6 +329,17 @@ export default function ExpCounter() {
         let nichenzhuUseCount = 0;
         let dailyNichenzhuUses = {};
 
+        let conversionFactor = 1;
+        if (starSeaConversion === 1) conversionFactor = 0.8;
+        else if (starSeaConversion === 2) conversionFactor = 0.95;
+        const starSeaCost = 100
+            * (gods1[0][0] === 5 ? 0.85 : 1)
+            * conversionFactor;
+
+        const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
+        const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
+        const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
+
         const checkIsPerfectInner = (tier, level, process, exp) => {
             if (level !== 2) return false;
             const tierExpData = exps[tier]?.[2];
@@ -339,8 +354,11 @@ export default function ExpCounter() {
             chargeTime += 8;
             if (chargeTime >= 900) {
                 chargeTime -= 900;
-                godEnergy[0] += godRegent[gods1[0][0]] || 0;
-                godEnergy[1] += godRegent[gods1[1][0]] || 0;
+                if (gods1[0][0] >= 0) godEnergy[0] += godRegent[gods1[0][0]] || 0;
+                if (gods1[1][0] >= 0) godEnergy[1] += godRegent[gods1[1][0]] || 0;
+                if (nichenzhuEnabled) {
+                    nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
+                }
             }
             if ((tableType === 0 || (tableStopType ? Math.floor(vd / 10800) >= tableTime : _.every([PS[now].tier, PS[now].level, PS[now].process, PS[now].exp], (n, i) => n >= Object.values(tableTierToStop)[i])) && tableType === 1) && cal[4] && !tableCanEat) {
                 tableCanEat = true;
@@ -384,9 +402,11 @@ export default function ExpCounter() {
             const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
             const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
             const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-            const totalStoneMultiplier = (baseAbsorption + forge1Bonus) *
-                (1 + qualityBonus) *
-                forge2Multiplier;
+            const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+            const totalStoneMultiplier = baseAbsorption *
+                (1 + qualityBonus + forge1Bonus) *
+                forge2Multiplier *
+                (1 + sealBonus);
             let st1 = (speed1 + extra) * totalStoneMultiplier;
             st1 *= cal[5];
             inc += speed1 + extra + st1;
@@ -397,69 +417,82 @@ export default function ExpCounter() {
                 PS[1].exp += purpleFurnaceSpeed;
             }
             if (vd % 10800 === 0) {
-                godEnergy[0] += gods1[0][0] < 0 ? 0 : 100;
-                godEnergy[1] += gods1[1][0] < 0 ? 0 : 200;
+                if (gods1[0][0] >= 0) godEnergy[0] += 100;
+                if (gods1[1][0] >= 0) godEnergy[1] += 200;
                 counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
-                while (godEnergy[0] >= 100) {
-                    counter.doubles += 1;
-                    if (!(Math.random() < 0.15 && godDoubles && gods1[0][0] === 5)) {
-                        counter.doubles -= 1;
-                        godEnergy[0] -= 100;
-                        counter.med[5] += 1;
-                    }
+
+                while (godEnergy[0] >= starSeaCost) {
+                    godEnergy[0] -= starSeaCost;
                     sum.god += gods1[0][1] * 10000;
                     inc += gods1[0][1] * 10000;
                 }
+
                 let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
                 while (godEnergy[1] >= useEnergy) {
-                    counter.doubles += 1;
-                    if (!(Math.random() < 0.15 && godDoubles && gods1[1][0] === 5)) {
-                        counter.doubles -= 1;
+                    if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
                         godEnergy[1] -= useEnergy;
-                        counter.med[5] += 1;
                     }
-                    sum.god += gods1[0][1] * 10000;
-                    inc += gods1[0][1] * 10000;
+                    sum.god += gods1[1][1] * 10000;
+                    inc += gods1[1][1] * 10000;
+                    counter.doubles += 1;
                 }
+
                 if (nichenzhuEnabled) {
-                    const dailyRecovery = nichenzhuConfig[nichenzhuStars].dailyRecovery || 100;
-                    nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + dailyRecovery);
+                    const maxDailyUses = 20;
                     const currentDay = Math.floor(vd / 10800);
                     dailyNichenzhuUses[currentDay] = 0;
-                    log.add(`${timeString(vd * 8)}: 逆塵珠每日恢復 ${dailyRecovery} 能量，當前: ${nichenzhuEnergy}/${nichenzhuConfig[nichenzhuStars].maxEnergy}`);
-                }
-                if (nichenzhuEnabled && nichenzhuEnergy >= nichenzhuEnergyCost) {
-                    const currentDay = Math.floor(vd / 10800);
-                    const maxDailyUses = 20;
-                    const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
-                    const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
-                    const actualUses = Math.min(availableUses, remainingDailyUses);
-                    if (actualUses > 0) {
-                        let zhoutianCount = 100;
-                        if (nichenzhuStars >= 1) {
-                            zhoutianCount = 120;
+                    if (nichenzhuEnergy >= nichenzhuEnergyCost) {
+                        const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
+                        const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
+                        const actualUses = Math.min(availableUses, remainingDailyUses);
+                        if (actualUses > 0) {
+                            const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
+                            const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+                            const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                            const currentBuffBonusInnerN = calculateCurrentBuffBonus(
+                                currentBuff,
+                                PS[0]?.tier,
+                                PS[0]?.level,
+                                PS[0]?.process,
+                                PS[0]?.exp,
+                                PS[1]?.tier,
+                                PS[1]?.level,
+                                PS[1]?.process,
+                                PS[1]?.exp
+                            );
+                            const totalPerfectionBonusInnerN = prevBuffBonusInnerN + currentBuffBonusInnerN;
+                            const baseSpeedForNichen = calcAirForNichen * ((effSpeedForNichen + totalPerfectionBonusInnerN) / 100);
+                            const furnaceBonus = furnaceEnabled ? (() => {
+                                const quality = furnaceQualityList[furnaceQuality] || 0;
+                                const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+                                const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+                                return (quality + forge1) * forge2;
+                            })() : 0;
+                            const nichenzhuGainPerUse = baseSpeedForNichen * (1 + furnaceBonus) * nichenzhuZhouTian;
+                            const totalGain = actualUses * nichenzhuGainPerUse;
+                            nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
+                            nichenzhuUseCount += actualUses;
+                            PS[1].exp += totalGain;
+                            nichenzhuTotalGain += totalGain;
+                            dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
+                            log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${nichenzhuZhouTian}周天/次）`);
                         }
-                        const nichenzhuGainPerUse = purpleFurnaceSpeed * zhoutianCount;
-                        const totalGain = actualUses * nichenzhuGainPerUse;
-                        nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
-                        nichenzhuUseCount += actualUses;
-                        PS[1].exp += totalGain;
-                        nichenzhuTotalGain += totalGain;
-                        dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
-                        log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${zhoutianCount}周天/次）`);
                     }
                 }
-                const breatheBase = useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0;
-                const breatheSpeed = cal[2] * breatheBase * breatheBuf / 100 * breatheTime * 1.9;
-                inc += breatheSpeed;
-                sum.breathe += breatheSpeed;
+
+                const breatheBaseNow = customBreatheBase ? customBreatheValue : breatheList[PS[0].tier][0];
+                const breatheSpeedNow = cal[2] * breatheBaseNow * breatheBuf / 100 * breatheTime * 1.9;
+                inc += breatheSpeedNow;
+                sum.breathe += breatheSpeedNow;
                 counter.breathe += breatheTime;
+
                 [...Array(5).keys()].forEach((i) => {
                     let med = cal[3] * medExp[i] * medAmount[i] * 10000;
                     inc += med;
                     sum.med += med;
                     counter.med[i] += cal[3] * medAmount[i];
                 })
+
                 if (cal[4]) {
                     let day = ((new Date()).getDay() + Math.floor(vd / 10800) - 1) % 7;
                     if ([3, 5, 0].includes(day)) {
@@ -482,6 +515,7 @@ export default function ExpCounter() {
                         }
                     }
                 }
+
                 if (inc <= 0 && (!cal[4] || [2, 3].includes(tableType) || (tableType === 1 && tableStopType === 0))) {
                     alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                     break;
@@ -649,6 +683,7 @@ export default function ExpCounter() {
     const [stoneForgeMultiplierEnabled, setStoneForgeMultiplierEnabled] = useState(false);
     const [stoneForgeMultiplier, setStoneForgeMultiplier] = useState(1.15);
     const [stoneSealEnabled, setStoneSealEnabled] = useState(false);
+    const [stoneSealPercent, setStoneSealPercent] = useState(0);
     const [furnaceEnabled, setFurnaceEnabled] = useState(false);
     const [furnaceQuality, setFurnaceQuality] = useState(3);
     const [furnaceForge1Enabled, setFurnaceForge1Enabled] = useState(false);
@@ -664,13 +699,23 @@ export default function ExpCounter() {
     const [nichenzhuEnergyMax, setNichenzhuEnergyMax] = useState(200);
     const [nichenzhuRecoveryRate, setNichenzhuRecoveryRate] = useState(0);
 
+    const [customBreatheBase, setCustomBreatheBase] = useState(false);
+    const [customBreatheValue, setCustomBreatheValue] = useState(0);
+
+    const [gods, setGods] = useState([
+        [-1, 0],
+        [-1, 0, false]
+    ]);
+    const [mirrorDouble, setMirrorDouble] = useState(true);
+    const [starSeaConversion, setStarSeaConversion] = useState(0);
+
     const nichenzhuConfig = {
-        0: { maxEnergy: 200, dailyRecovery: 100, starBonus: 1.0 },
-        1: { maxEnergy: 300, dailyRecovery: 120, starBonus: 1.2 },
-        2: { maxEnergy: 400, dailyRecovery: 140, starBonus: 1.2 },
-        3: { maxEnergy: 500, dailyRecovery: 160, starBonus: 1.2 },
-        4: { maxEnergy: 600, dailyRecovery: 180, starBonus: 1.2 },
-        5: { maxEnergy: 700, dailyRecovery: 200, starBonus: 1.2 }
+        0: { maxEnergy: 200, regenPerInterval: 1.0, energyCost: 10, zhouTian: 100 },
+        1: { maxEnergy: 300, regenPerInterval: 1.3, energyCost: 10, zhouTian: 120 },
+        2: { maxEnergy: 400, regenPerInterval: 1.6, energyCost: 10, zhouTian: 120 },
+        3: { maxEnergy: 500, regenPerInterval: 2.0, energyCost: 10, zhouTian: 120 },
+        4: { maxEnergy: 600, regenPerInterval: 2.4, energyCost: 10, zhouTian: 120 },
+        5: { maxEnergy: 700, regenPerInterval: 3.0, energyCost: 9, zhouTian: 120 }
     };
 
     const [fenqiEnabled, setFenqiEnabled] = useState(false);
@@ -679,8 +724,6 @@ export default function ExpCounter() {
     const [yaojieBonus, setYaojieBonus] = useState(0);
     const [wanjieTianyuanEnabled, setWanjieTianyuanEnabled] = useState(false);
     const [wanjieTianyuanBonus, setWanjieTianyuanBonus] = useState(0);
-    const [gods, setGods] = useState([[-1, 0], [-1, 0, false], [-1, 0]]);
-    const [godDoubles, setGodDoubles] = useState(true);
     const [customEffective, setCustomEffective] = useState(false);
     const [subProcess, setSubProcess] = useState({
         tier: 4,
@@ -697,16 +740,9 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
-    const [useCustomBreathe, setUseCustomBreathe] = useState(false);
-    const [customBreatheBase, setCustomBreatheBase] = useState('');
-
     const air = tier === 1 ? voidAir : othersAir;
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
-    const mainTier = tier;
-    const mainLevel = level;
-    const subTier = subProcess.tier;
-    const subLevel = subProcess.level;
 
     const prevBuffBonus = calculatePrevBuffBonus(prevBuff, level);
     const currentBuffBonus = calculateCurrentBuffBonus(
@@ -723,86 +759,90 @@ export default function ExpCounter() {
     const totalPerfectionBonus = prevBuffBonus + currentBuffBonus;
 
     let fenqiMultiplier = 1;
-    if (fenqiEnabled && fenqiBonus > 0) {
-        fenqiMultiplier = 1 + (fenqiBonus / 100);
-    }
+    if (fenqiEnabled && fenqiBonus > 0) fenqiMultiplier = 1 + (fenqiBonus / 100);
     let yaojieMultiplier = 1;
-    if (yaojieEnabled && yaojieBonus > 0) {
-        yaojieMultiplier = 1 + (yaojieBonus / 100);
-    }
+    if (yaojieEnabled && yaojieBonus > 0) yaojieMultiplier = 1 + (yaojieBonus / 100);
     let wanjieMultiplier = 1;
-    if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
-        wanjieMultiplier = 1 + (wanjieTianyuanBonus / 100);
-    }
+    if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) wanjieMultiplier = 1 + (wanjieTianyuanBonus / 100);
     const totalMultiplier = fenqiMultiplier * wanjieMultiplier * yaojieMultiplier;
     const baseEfficiency = effectiveSpeed + totalPerfectionBonus;
     const finalEfficiency = baseEfficiency * totalMultiplier;
     const speed = air * (finalEfficiency / 100);
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
-    const extraEfficiency = finalEfficiency - effectiveSpeed;
 
-    const breatheBase = useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0;
+    const breatheBase = customBreatheBase ? customBreatheValue : breatheList[tier][0];
     const breatheSpeed = cal[2] * breatheBase * breatheBuf / 100 * breatheTime * 1.9;
+
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
+
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
-    const godDay = [cal[6] * Math.round(((96 * godRegent[gods[0][0]] + 100) / 100 + (gods[0][0] === 5 && godDoubles ? ((96 * godRegent[gods[0][0]] + 100) / 100 * 0.15) : 0)) * 100) / 100, cal[6] * Math.round(((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) + (gods[1][0] === 5 && godDoubles ? ((96 * godRegent[gods[1][0]] + 100) / (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) * 0.15) : 0)) * 100) / 100]
-    const godSpeed = [Math.round(godDay[0] * gods[0][1] * 10000 * 100) / 100 || 0, Math.round(godDay[1] * gods[0][1] * 10000 * 100) / 100 || 0];
+
+    let conversionFactor = 1;
+    if (starSeaConversion === 1) conversionFactor = 0.8;
+    else if (starSeaConversion === 2) conversionFactor = 0.95;
+    const starSeaCost = 100
+        * (gods[0][0] === 5 ? 0.85 : 1)
+        * conversionFactor;
+    const starSeaRecovery = 96 * godRegent[gods[0][0]] + 100;
+    const starSeaTimes = cal[6] ? starSeaRecovery / starSeaCost : 0;
+    const godSpeed0 = starSeaTimes * gods[0][1] * 10000;
+
+    const useEnergy = (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100);
+    const mirrorRecovery = 96 * godRegent[gods[1][0]] + 200;
+    const mirrorTimes = cal[6] ? mirrorRecovery / useEnergy : 0;
+    const mirrorEffectiveTimes = mirrorTimes * (1 + (mirrorDouble && gods[1][0] === 5 ? 0.15 : 0));
+    const godSpeed1 = mirrorEffectiveTimes * gods[1][1] * 10000;
+
+    const godSpeed = [godSpeed0, godSpeed1];
 
     const stoneTypeDisplay = STONE_SYSTEM.types[stoneLevel];
     const baseAbsorptionDisplay = stoneTypeDisplay ? stoneTypeDisplay.absorption : 0;
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-    const totalStoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) *
-        (1 + qualityBonusDisplay) *
-        forge2MultiplierDisplay;
+    const sealBonusDisplay = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+    const totalStoneMultiplierDisplay = baseAbsorptionDisplay *
+        (1 + qualityBonusDisplay + forge1BonusDisplay) *
+        forge2MultiplierDisplay *
+        (1 + sealBonusDisplay);
     const finalStone = Math.round((air * (finalEfficiency / 100)) * totalStoneMultiplierDisplay / 8 * 60 * 60 * 24 * 100) / 100;
 
+    const furnaceQualityBonus = furnaceQualityList[furnaceQuality] || 0;
+    const furnaceForge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+    const furnaceForge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+    const furnaceTotalBonus = (furnaceQualityBonus + furnaceForge1) * furnaceForge2;
+
     const purpleFurnaceSpeedDisplay = furnaceEnabled ? (() => {
-        const quality = furnaceQualityList[furnaceQuality] || 0;
-        const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
-        const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
-        const totalBonus = (quality + forge1) * forge2;
-        return Math.round(speed * totalBonus * 100) / 100;
+        return Math.round(speed * furnaceTotalBonus * 100) / 100;
     })() : 0;
 
-    const finalSpeed = Math.round(baseSpeed * 100) / 100;
-    const finalAdd = Math.round(extraSpeed * 100) / 100;
-    const finalBreathe = Math.round(breatheSpeed * 100) / 100;
-    const finalMed = Math.round(medSpeed * 100) / 100;
-    const finalTable = Math.round(tableSpeed / 7 * 100) / 100;
-    const finalGod = Math.round(godSpeed.reduce((a, b) => a + b) * 100) / 100
+    const nichenBaseSpeed = air * ((effectiveSpeed + totalPerfectionBonus) / 100);
+    const nichenGainPerUse = nichenBaseSpeed * (1 + furnaceTotalBonus) * (nichenzhuStars >= 1 ? 120 : 100);
 
-    const speedPerDay = speed * 10800;
     const baseSpeedPerDay = baseSpeed * 10800;
     const extraSpeedPerDay = extraSpeed * 10800;
-    const breatheSpeedPerDay = breatheSpeed * 10800;
-    const medSpeedPerDay = medSpeed * 10800;
-    const tableSpeedPerDay = tableSpeed / 7 * 10800;
+    const breatheSpeedPerDay = breatheSpeed;
+    const medSpeedPerDay = medSpeed;
+    const tableSpeedPerDay = tableSpeed / 7;
     const stoneSpeedPerDay = finalStone * 10800;
-    const godSpeedPerDay = finalGod * 10800;
+    const godSpeedPerDay = godSpeed.reduce((a, b) => a + b);
+
+    const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay;
 
     useEffect(() => {
         if (nichenzhuEnabled) {
             const config = nichenzhuConfig[nichenzhuStars];
-            let energyCost = 10;
-            if (nichenzhuStars === 5) {
-                energyCost = 9;
-            }
-            if (nichenzhuTransform) {
-                energyCost = Math.max(8, energyCost - 1);
-            }
-            const dailyRecovery = config.dailyRecovery;
+            let energyCost = config.energyCost;
+            if (nichenzhuTransform) energyCost = Math.max(8, energyCost - 1);
+            const dailyRecovery = config.regenPerInterval * 96 + 100;
             const dailyUses = Math.floor(dailyRecovery / energyCost);
             setNichenzhuEnergyCost(energyCost);
             setNichenzhuEnergyMax(config.maxEnergy);
             setNichenzhuRecoveryRate(dailyRecovery);
             setNichenzhuDailyUses(dailyUses);
-            const zhoutianCount = nichenzhuStars >= 1 ? 120 : 100;
-            const baseGainPerUse = purpleFurnaceSpeedDisplay * zhoutianCount;
-            const dailyGain = baseGainPerUse * dailyUses;
+            const dailyGain = nichenGainPerUse * dailyUses;
             setNichenzhuDailyGain(dailyGain);
         } else {
             setNichenzhuEnergyCost(10);
@@ -811,7 +851,7 @@ export default function ExpCounter() {
             setNichenzhuDailyUses(0);
             setNichenzhuDailyGain(0);
         }
-    }, [nichenzhuEnabled, nichenzhuStars, nichenzhuTransform, purpleFurnaceSpeedDisplay]);
+    }, [nichenzhuEnabled, nichenzhuStars, nichenzhuTransform, nichenGainPerUse]);
 
     const [logs, setLogs] = useState([]);
     const [record, setRecord] = useState([]);
@@ -1265,13 +1305,7 @@ export default function ExpCounter() {
                                             <Stack spacing={2}>
                                                 <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
                                                     <FormControlLabel
-                                                        control={
-                                                            <Checkbox
-                                                                size="small"
-                                                                checked={fenqiEnabled}
-                                                                onChange={(e, v) => setFenqiEnabled(v)}
-                                                            />
-                                                        }
+                                                        control={<Checkbox size="small" checked={fenqiEnabled} onChange={(e, v) => setFenqiEnabled(v)} />}
                                                         label="奮起"
                                                     />
                                                     {fenqiEnabled && (
@@ -1287,13 +1321,7 @@ export default function ExpCounter() {
                                                 </Stack>
                                                 <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
                                                     <FormControlLabel
-                                                        control={
-                                                            <Checkbox
-                                                                size="small"
-                                                                checked={wanjieTianyuanEnabled}
-                                                                onChange={(e, v) => setWanjieTianyuanEnabled(v)}
-                                                            />
-                                                        }
+                                                        control={<Checkbox size="small" checked={wanjieTianyuanEnabled} onChange={(e, v) => setWanjieTianyuanEnabled(v)} />}
                                                         label="萬界天淵"
                                                     />
                                                     {wanjieTianyuanEnabled && (
@@ -1309,13 +1337,7 @@ export default function ExpCounter() {
                                                 </Stack>
                                                 <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
                                                     <FormControlLabel
-                                                        control={
-                                                            <Checkbox
-                                                                size="small"
-                                                                checked={yaojieEnabled}
-                                                                onChange={(e, v) => setYaojieEnabled(v)}
-                                                            />
-                                                        }
+                                                        control={<Checkbox size="small" checked={yaojieEnabled} onChange={(e, v) => setYaojieEnabled(v)} />}
                                                         label="妖界降臨"
                                                     />
                                                     {yaojieEnabled && (
@@ -1372,19 +1394,33 @@ export default function ExpCounter() {
 
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
-                        吐吶
+                        吐納
                         <span>+{Math.round(breatheSpeedPerDay * 100) / 100}</span>
                     </AccordionSummary>
                     <AccordionDetails>
-                        <Stack alignItems={"center"} justifyContent={"center"}>
-                            <Typography variant={isMobile ? "h6" : "h2"} sx={{ color: "rgba(255,255,255,0.5)" }}>抗拒計算吐納 從你我做起</Typography>
-                            <Stack px={10 * !isMobile} width={"-webkit-fill-available"} direction={isMobile ? "column" : "row"} justifyContent={"space-around"} alignItems={"center"}>
+                        <Stack alignItems={"center"} justifyContent={"center"} spacing={2}>
+                            <Typography variant={isMobile ? "h6" : "h2"} sx={{ color: "rgba(255,255,255,0.5)" }}>
+                                拒絕計算吐納 從你我做起
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary" sx={{ mb: 1 }}>
+                                *請在總加成基礎上加100%
+                            </Typography>
+                            <Stack
+                                px={!isMobile ? 10 : 0}
+                                width={"100%"}
+                                direction={isMobile ? "column" : "row"}
+                                justifyContent={"space-around"}
+                                alignItems={"center"}
+                                spacing={isMobile ? 1 : 0}
+                            >
                                 <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Typography fontSize={"xx-large"}>{useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0}</Typography>
-                                    <Typography color={"textSecondary"}>吐納基礎修為</Typography>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {breatheBase}
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary">吐納基礎修為</Typography>
                                 </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} m={-3} fontSize={"xxx-large"}>×</Typography>
-                                <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
+                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
                                     <Input
                                         type={"number"}
                                         sx={{ width: 80 }}
@@ -1393,46 +1429,40 @@ export default function ExpCounter() {
                                         value={breatheBuf}
                                         endAdornment={"%"}
                                     />
-                                    <Typography color={"textSecondary"}>吐納加成</Typography>
+                                    <Typography variant="body2" color="textSecondary">吐納加成</Typography>
                                 </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} m={-3} fontSize={"xxx-large"}>×</Typography>
-                                <Stack m={2} direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
+                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
+                                <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
                                     <Input
-                                        type={"numbers"}
+                                        type={"number"}
                                         sx={{ width: 80 }}
                                         onChange={(e) => setBreatheTime(parseFloat(e.target.value))}
                                         variant={"standard"}
                                         value={breatheTime}
                                         endAdornment={"次"}
                                     />
-                                    <Typography color={"textSecondary"}>吐納次數</Typography>
+                                    <Typography variant="body2" color="textSecondary">吐納次數</Typography>
                                 </Stack>
-                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} m={-3} fontSize={"xxx-large"}>×</Typography>
+                                <Typography sx={{ color: "rgba(255,255,255,0.5)" }} fontSize="large">×</Typography>
                                 <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Typography fontSize={"xx-large"}>1.9</Typography>
-                                    <Typography color={"textSecondary"}>吐納爆擊</Typography>
+                                    <Typography variant="body1" fontWeight="bold">1.9</Typography>
+                                    <Typography variant="body2" color="textSecondary">吐納爆擊</Typography>
                                 </Stack>
                             </Stack>
-                            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" sx={{ mt: 3, width: '100%' }}>
+                            <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="center" sx={{ mt: 2, width: "100%" }}>
                                 <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            checked={useCustomBreathe}
-                                            onChange={(e) => setUseCustomBreathe(e.target.checked)}
-                                        />
-                                    }
-                                    label="自訂吐納修為"
+                                    control={<Checkbox checked={customBreatheBase} onChange={(e, v) => setCustomBreatheBase(v)} />}
+                                    label="自訂吐納"
                                 />
-                                {useCustomBreathe && (
+                                {customBreatheBase && (
                                     <TextField
-                                        value={customBreatheBase}
-                                        onChange={(e) => setCustomBreatheBase(parseFloat(e.target.value) || 0)}
                                         type="number"
-                                        label="輸入基礎修為"
-                                        variant="outlined"
-                                        fullWidth
-                                        sx={{ width: '100%' }}
-                                        InputProps={{ inputProps: { min: 0, step: 1 } }}
+                                        value={customBreatheValue}
+                                        onChange={(e) => setCustomBreatheValue(parseFloat(e.target.value) || 0)}
+                                        label="基礎修為"
+                                        size="small"
+                                        sx={{ width: 150 }}
+                                        InputProps={{ endAdornment: "修為" }}
                                     />
                                 )}
                             </Stack>
@@ -1622,6 +1652,7 @@ export default function ExpCounter() {
                                     )}
                                 </Select>
                             </FormControl>
+                            <Typography variant="body2" color="textSecondary">基礎吸收率: {(STONE_SYSTEM.types[stoneLevel]?.absorption * 100).toFixed(0)}%</Typography>
                         </Stack>
                         <Divider sx={{ my: 2 }} />
                         <FormControlLabel
@@ -1645,6 +1676,7 @@ export default function ExpCounter() {
                                             <MenuItem value={4}>覺醒 ({(stoneQualityList[4] * 100).toFixed(0)}%)</MenuItem>
                                         </Select>
                                     </FormControl>
+                                    <Typography variant="body2" color="textSecondary">星級效果: ×{((stoneQualityList[stoneQuality] || 0) * 100).toFixed(0)}%</Typography>
                                 </Stack>
                                 <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                                     <FormControlLabel
@@ -1680,6 +1712,18 @@ export default function ExpCounter() {
                                         />
                                     }
                                 </Stack>
+                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                    <TextField
+                                        label="額外收益"
+                                        type="number"
+                                        value={stoneSealPercent}
+                                        onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)}
+                                        sx={{ width: 150 }}
+                                        InputProps={{ endAdornment: <span>%</span> }}
+                                        inputProps={{ step: 0.1, min: 0 }}
+                                    />
+                                    <Typography variant="body2" color="textSecondary">倍率: ×{(1 + stoneSealPercent / 100).toFixed(2)}</Typography>
+                                </Stack>
                             </Stack>
                         )}
                         <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
@@ -1690,7 +1734,8 @@ export default function ExpCounter() {
                                     const quality = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
                                     const forge1 = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
                                     const forge2 = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-                                    const totalPercent = (base + forge1) * (1 + quality) * forge2 * 100;
+                                    const seal = stoneSealEnabled ? stoneSealPercent / 100 : 0;
+                                    const totalPercent = base * (1 + quality + forge1) * forge2 * (1 + seal) * 100;
                                     return (
                                         <>
                                             基礎吸收率: {(base * 100).toFixed(0)}%
@@ -1699,7 +1744,8 @@ export default function ExpCounter() {
                                                     <br />納靈印星級: +{(quality * 100).toFixed(0)}%
                                                     {stoneForgeEnabled && ` + ${(forge1 * 100).toFixed(1)}% (鍛靈①)`}
                                                     {stoneForgeMultiplierEnabled && ` × ${forge2.toFixed(2)} (鍛靈②)`}
-                                                    <br />有效吸收率: {((base + forge1) * (1 + quality) * 100).toFixed(2)}%
+                                                    {stoneSealPercent > 0 && ` × ${(1 + seal).toFixed(2)} (額外收益)`}
+                                                    <br />有效吸收率: {(base * (1 + quality + forge1) * 100).toFixed(2)}%
                                                 </>
                                             )}
                                             {!stoneSealEnabled && (<><br /><span style={{ color: 'gray' }}>納靈印未啟用</span></>)}
@@ -1719,71 +1765,108 @@ export default function ExpCounter() {
                     </AccordionSummary>
                     <AccordionDetails>
                         <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"} spacing={2}>
-                            {["星海瓶", "雙星鏡"].map((t, i) => (
-                                <>
-                                    <Stack alignItems={"center"} width={"100%"} p={!isMobile * 3} spacing={1}>
-                                        <Checkbox
-                                            checked={gods[i][0] >= 0}
-                                            onChange={(e, v) => {
-                                                let newGods = Array.from(gods);
-                                                newGods[i][0] = v ? 0 : -1;
-                                                if (i === 0 && v === false) { newGods[1][0] = -1; }
-                                                if (i === 1 && v === true && gods[0][0] === -1) { newGods[0][0] = 0; }
-                                                setGods(newGods);
-                                            }}
-                                        />{t}
-                                        <Rating
-                                            disabled={gods[i][0] < 0}
-                                            value={gods[i][0]}
-                                            onChange={(e, v) => {
-                                                let newGods = Array.from(gods);
-                                                newGods[i][0] = v === null ? 0 : v;
-                                                setGods(newGods);
-                                            }}
-                                            min={0}
-                                        />
-                                        <Stack direction={"row"} alignItems={"baseline"}>
-                                            <Box sx={{ width: 10, height: 10, backgroundColor: "red", borderRadius: 100 }} />x{godDay[i]} / 天
-                                        </Stack>
-                                        {!i ?
-                                            <Input
-                                                value={gods[i][1]}
-                                                onChange={(e) => {
-                                                    let newGods = Array.from(gods);
-                                                    newGods[i][1] = parseFloat(e.target.value === "" ? 0 : e.target.value);
-                                                    setGods(newGods);
-                                                }}
-                                                endAdornment={"萬"}
-                                                type={"number"}
-                                                min={0}
-                                                sx={{ width: 80 }}
-                                            /> :
-                                            <FormControlLabel
-                                                checked={gods[i][2]}
-                                                control={<Checkbox size={"small"} />}
-                                                label={"幻化"}
-                                                onChange={(e, v) => {
-                                                    let newGods = Array.from(gods);
-                                                    newGods[i][2] = v;
-                                                    setGods(newGods);
-                                                }}
-                                            />
-                                        }
-                                        <Typography color={"error"}>≈+ {formatNumber(godSpeed[i])} / 天</Typography>
-                                    </Stack>
-                                    <Divider flexItem orientation={isMobile ? "horizontal" : "vertical"} />
-                                </>
-                            ))}
+                            <Stack alignItems={"center"} width={"100%"} p={!isMobile * 3} spacing={1}>
+                                <Checkbox
+                                    checked={gods[0][0] >= 0}
+                                    onChange={(e, v) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[0][0] = v ? 0 : -1;
+                                        setGods(newGods);
+                                    }}
+                                />星海瓶
+                                <Rating
+                                    disabled={gods[0][0] < 0}
+                                    value={gods[0][0]}
+                                    onChange={(e, v) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[0][0] = v === null ? 0 : v;
+                                        setGods(newGods);
+                                    }}
+                                    min={0}
+                                />
+                                <Stack direction={"row"} alignItems={"baseline"}>
+                                    <Box sx={{ width: 10, height: 10, backgroundColor: "red", borderRadius: 100 }} />x{Math.round(starSeaTimes * 100) / 100} / 天
+                                </Stack>
+                                <Input
+                                    value={gods[0][1]}
+                                    onChange={(e) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[0][1] = parseFloat(e.target.value === "" ? 0 : e.target.value);
+                                        setGods(newGods);
+                                    }}
+                                    endAdornment={"萬"}
+                                    type={"number"}
+                                    min={0}
+                                    sx={{ width: 80 }}
+                                />
+                                <Typography color={"error"}>≈+ {formatNumber(godSpeed0)} / 天</Typography>
+                                <FormControl component="fieldset" sx={{ width: "100%" }}>
+                                    <RadioGroup
+                                        row
+                                        value={starSeaConversion}
+                                        onChange={(e, v) => setStarSeaConversion(parseInt(v))}
+                                    >
+                                        <FormControlLabel value={0} control={<Radio size="small" />} label="無" />
+                                        <FormControlLabel value={1} control={<Radio size="small" />} label="金丹 (-20%)" />
+                                        <FormControlLabel value={2} control={<Radio size="small" />} label="紫丹 (-5%)" />
+                                    </RadioGroup>
+                                </FormControl>
+                            </Stack>
+
+                            <Divider flexItem orientation={isMobile ? "horizontal" : "vertical"} />
+
+                            <Stack alignItems={"center"} width={"100%"} p={!isMobile * 3} spacing={1}>
+                                <Checkbox
+                                    checked={gods[1][0] >= 0}
+                                    onChange={(e, v) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[1][0] = v ? 0 : -1;
+                                        setGods(newGods);
+                                    }}
+                                />雙星鏡
+                                <Rating
+                                    disabled={gods[1][0] < 0}
+                                    value={gods[1][0]}
+                                    onChange={(e, v) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[1][0] = v === null ? 0 : v;
+                                        setGods(newGods);
+                                    }}
+                                    min={0}
+                                />
+                                <Stack direction={"row"} alignItems={"baseline"}>
+                                    <Box sx={{ width: 10, height: 10, backgroundColor: "red", borderRadius: 100 }} />x{Math.round(mirrorEffectiveTimes * 100) / 100} / 天
+                                </Stack>
+                                <Input
+                                    value={gods[1][1]}
+                                    onChange={(e) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[1][1] = parseFloat(e.target.value === "" ? 0 : e.target.value);
+                                        setGods(newGods);
+                                    }}
+                                    endAdornment={"萬"}
+                                    type={"number"}
+                                    min={0}
+                                    sx={{ width: 80 }}
+                                />
+                                <FormControlLabel
+                                    checked={gods[1][2]}
+                                    control={<Checkbox size={"small"} />}
+                                    label={"幻化"}
+                                    onChange={(e, v) => {
+                                        let newGods = Array.from(gods);
+                                        newGods[1][2] = v;
+                                        setGods(newGods);
+                                    }}
+                                />
+                                <Typography color={"error"}>≈+ {formatNumber(godSpeed1)} / 天</Typography>
+                                <FormControlLabel
+                                    control={<Checkbox checked={mirrorDouble} onChange={(e, v) => setMirrorDouble(v)} size="small" />}
+                                    label="雙倍機會 (15%)"
+                                />
+                            </Stack>
                         </Stack>
                     </AccordionDetails>
-                    <AccordionActions>
-                        <FormControlLabel
-                            checked={godDoubles}
-                            control={<Checkbox />}
-                            label={"計算雙倍機會 (15%)"}
-                            onChange={(e, v) => setGodDoubles(v)}
-                        />
-                    </AccordionActions>
                 </Accordion>
 
                 <Accordion sx={{ width: "100%" }}>
@@ -1914,7 +1997,7 @@ export default function ExpCounter() {
 
             <Stack spacing={1}>
                 <Typography variant={isMobile ? "h6" : "h5"}>
-                    修煉速度: {Math.round(speedPerDay * 100) / 100} / 天
+                    修煉速度: {Math.round(totalSpeedPerDay * 100) / 100} / 天
                 </Typography>
                 {furnaceEnabled && (
                     <Typography variant={isMobile ? "h6" : "h5"} color="secondary">
@@ -1935,7 +2018,7 @@ export default function ExpCounter() {
                     <Typography variant={"h4"}>總修煉速度:</Typography>
                     <Typography variant={"h4"}>
                         <AnimatedNumbers
-                            animateToNumber={baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay}
+                            animateToNumber={totalSpeedPerDay}
                             includeComma
                             transitions={(index) => ({ type: "spring", duration: index / 10 })}
                         />
