@@ -106,7 +106,6 @@ export default function ExpCounter() {
             stoneForgeMultiplierEnabled,
             stoneForgeMultiplier,
             stoneSealEnabled,
-            stoneSealPercent,
             furnaceEnabled,
             furnaceQuality,
             furnaceForge1Enabled,
@@ -127,6 +126,8 @@ export default function ExpCounter() {
             nichenzhuEnabled,
             nichenzhuStars,
             nichenzhuTransform,
+            useCustomBreathe,
+            customBreatheBase
         };
         localStorage.setItem(`data ${i}`, JSON.stringify(saveList));
         toast.success("Saved!")
@@ -166,7 +167,6 @@ export default function ExpCounter() {
                 stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
                 stoneForgeMultiplier: setStoneForgeMultiplier,
                 stoneSealEnabled: setStoneSealEnabled,
-                stoneSealPercent: setStoneSealPercent,
                 furnaceEnabled: setFurnaceEnabled,
                 furnaceQuality: setFurnaceQuality,
                 furnaceForge1Enabled: setFurnaceForge1Enabled,
@@ -187,6 +187,8 @@ export default function ExpCounter() {
                 nichenzhuEnabled: setNichenzhuEnabled,
                 nichenzhuStars: setNichenzhuStars,
                 nichenzhuTransform: setNichenzhuTransform,
+                useCustomBreathe: setUseCustomBreathe,
+                customBreatheBase: setCustomBreatheBase
             };
             Object.entries(setters).forEach(([key, setter]) => {
                 if (data[key] !== undefined) {
@@ -382,11 +384,9 @@ export default function ExpCounter() {
             const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
             const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
             const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-            const sealBonus = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-            const totalStoneMultiplier = baseAbsorption *
-                (1 + qualityBonus + forge1Bonus) *
-                forge2Multiplier *
-                (1 + sealBonus);
+            const totalStoneMultiplier = (baseAbsorption + forge1Bonus) *
+                (1 + qualityBonus) *
+                forge2Multiplier;
             let st1 = (speed1 + extra) * totalStoneMultiplier;
             st1 *= cal[5];
             inc += speed1 + extra + st1;
@@ -449,6 +449,8 @@ export default function ExpCounter() {
                         log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${zhoutianCount}周天/次）`);
                     }
                 }
+                const breatheBase = useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0;
+                const breatheSpeed = cal[2] * breatheBase * breatheBuf / 100 * breatheTime * 1.9;
                 inc += breatheSpeed;
                 sum.breathe += breatheSpeed;
                 counter.breathe += breatheTime;
@@ -647,7 +649,6 @@ export default function ExpCounter() {
     const [stoneForgeMultiplierEnabled, setStoneForgeMultiplierEnabled] = useState(false);
     const [stoneForgeMultiplier, setStoneForgeMultiplier] = useState(1.15);
     const [stoneSealEnabled, setStoneSealEnabled] = useState(false);
-    const [stoneSealPercent, setStoneSealPercent] = useState(0);
     const [furnaceEnabled, setFurnaceEnabled] = useState(false);
     const [furnaceQuality, setFurnaceQuality] = useState(3);
     const [furnaceForge1Enabled, setFurnaceForge1Enabled] = useState(false);
@@ -696,6 +697,9 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
+    const [useCustomBreathe, setUseCustomBreathe] = useState(false);
+    const [customBreatheBase, setCustomBreatheBase] = useState('');
+
     const air = tier === 1 ? voidAir : othersAir;
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
@@ -737,7 +741,9 @@ export default function ExpCounter() {
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
     const extraEfficiency = finalEfficiency - effectiveSpeed;
-    const breatheSpeed = cal[2] * breatheList[tier] * breatheBuf / 100 * breatheTime * 1.9;
+
+    const breatheBase = useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0;
+    const breatheSpeed = cal[2] * breatheBase * breatheBuf / 100 * breatheTime * 1.9;
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
     const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
     const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
@@ -749,11 +755,9 @@ export default function ExpCounter() {
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-    const sealBonusDisplay = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-    const totalStoneMultiplierDisplay = baseAbsorptionDisplay *
-        (1 + qualityBonusDisplay + forge1BonusDisplay) *
-        forge2MultiplierDisplay *
-        (1 + sealBonusDisplay);
+    const totalStoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) *
+        (1 + qualityBonusDisplay) *
+        forge2MultiplierDisplay;
     const finalStone = Math.round((air * (finalEfficiency / 100)) * totalStoneMultiplierDisplay / 8 * 60 * 60 * 24 * 100) / 100;
 
     const purpleFurnaceSpeedDisplay = furnaceEnabled ? (() => {
@@ -1376,7 +1380,7 @@ export default function ExpCounter() {
                             <Typography variant={isMobile ? "h6" : "h2"} sx={{ color: "rgba(255,255,255,0.5)" }}>抗拒計算吐納 從你我做起</Typography>
                             <Stack px={10 * !isMobile} width={"-webkit-fill-available"} direction={isMobile ? "column" : "row"} justifyContent={"space-around"} alignItems={"center"}>
                                 <Stack direction={!isMobile ? "column" : "row-reverse"} alignItems={"center"} spacing={1}>
-                                    <Typography fontSize={"xx-large"}>{breatheList[tier]}</Typography>
+                                    <Typography fontSize={"xx-large"}>{useCustomBreathe && customBreatheBase ? Number(customBreatheBase) : breatheList[tier]?.[Math.min(level, 2)] || 0}</Typography>
                                     <Typography color={"textSecondary"}>吐納基礎修為</Typography>
                                 </Stack>
                                 <Typography sx={{ color: "rgba(255,255,255,0.5)" }} m={-3} fontSize={"xxx-large"}>×</Typography>
@@ -1408,6 +1412,29 @@ export default function ExpCounter() {
                                     <Typography fontSize={"xx-large"}>1.9</Typography>
                                     <Typography color={"textSecondary"}>吐納爆擊</Typography>
                                 </Stack>
+                            </Stack>
+                            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" sx={{ mt: 3, width: '100%' }}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={useCustomBreathe}
+                                            onChange={(e) => setUseCustomBreathe(e.target.checked)}
+                                        />
+                                    }
+                                    label="自訂吐納修為"
+                                />
+                                {useCustomBreathe && (
+                                    <TextField
+                                        value={customBreatheBase}
+                                        onChange={(e) => setCustomBreatheBase(parseFloat(e.target.value) || 0)}
+                                        type="number"
+                                        label="輸入基礎修為"
+                                        variant="outlined"
+                                        fullWidth
+                                        sx={{ width: '100%' }}
+                                        InputProps={{ inputProps: { min: 0, step: 1 } }}
+                                    />
+                                )}
                             </Stack>
                         </Stack>
                     </AccordionDetails>
@@ -1595,7 +1622,6 @@ export default function ExpCounter() {
                                     )}
                                 </Select>
                             </FormControl>
-                            <Typography variant="body2" color="textSecondary">基礎吸收率: {(STONE_SYSTEM.types[stoneLevel]?.absorption * 100).toFixed(0)}%</Typography>
                         </Stack>
                         <Divider sx={{ my: 2 }} />
                         <FormControlLabel
@@ -1619,7 +1645,6 @@ export default function ExpCounter() {
                                             <MenuItem value={4}>覺醒 ({(stoneQualityList[4] * 100).toFixed(0)}%)</MenuItem>
                                         </Select>
                                     </FormControl>
-                                    <Typography variant="body2" color="textSecondary">星級效果: ×{((stoneQualityList[stoneQuality] || 0) * 100).toFixed(0)}%</Typography>
                                 </Stack>
                                 <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                                     <FormControlLabel
@@ -1655,18 +1680,6 @@ export default function ExpCounter() {
                                         />
                                     }
                                 </Stack>
-                                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                                    <TextField
-                                        label="額外收益"
-                                        type="number"
-                                        value={stoneSealPercent}
-                                        onChange={(e) => setStoneSealPercent(parseFloat(e.target.value) || 0)}
-                                        sx={{ width: 150 }}
-                                        InputProps={{ endAdornment: <span>%</span> }}
-                                        inputProps={{ step: 0.1, min: 0 }}
-                                    />
-                                    <Typography variant="body2" color="textSecondary">倍率: ×{(1 + stoneSealPercent / 100).toFixed(2)}</Typography>
-                                </Stack>
                             </Stack>
                         )}
                         <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
@@ -1677,8 +1690,7 @@ export default function ExpCounter() {
                                     const quality = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
                                     const forge1 = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
                                     const forge2 = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-                                    const seal = stoneSealEnabled ? stoneSealPercent / 100 : 0;
-                                    const totalPercent = base * (1 + quality + forge1) * forge2 * (1 + seal) * 100;
+                                    const totalPercent = (base + forge1) * (1 + quality) * forge2 * 100;
                                     return (
                                         <>
                                             基礎吸收率: {(base * 100).toFixed(0)}%
@@ -1687,8 +1699,7 @@ export default function ExpCounter() {
                                                     <br />納靈印星級: +{(quality * 100).toFixed(0)}%
                                                     {stoneForgeEnabled && ` + ${(forge1 * 100).toFixed(1)}% (鍛靈①)`}
                                                     {stoneForgeMultiplierEnabled && ` × ${forge2.toFixed(2)} (鍛靈②)`}
-                                                    {stoneSealPercent > 0 && ` × ${(1 + seal).toFixed(2)} (額外收益)`}
-                                                    <br />有效吸收率: {(base * (1 + quality + forge1) * 100).toFixed(2)}%
+                                                    <br />有效吸收率: {((base + forge1) * (1 + quality) * 100).toFixed(2)}%
                                                 </>
                                             )}
                                             {!stoneSealEnabled && (<><br /><span style={{ color: 'gray' }}>納靈印未啟用</span></>)}
