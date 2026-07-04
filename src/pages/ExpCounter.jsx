@@ -280,7 +280,8 @@ export default function ExpCounter() {
 
     const calc = (mainP, subP = {}, thirdP = {}) => {
         try {
-            let maxIter = 5000000;
+            let maxDays = 10000;
+            let maxIter = maxDays * 10800;
             let log = new Set();
             let vd = 0;
             let records = [];
@@ -373,7 +374,7 @@ export default function ExpCounter() {
 
             while (true) {
                 if (--maxIter < 0) {
-                    toast.error("計算超出最大迭代次數（500萬步），可能陷入無限迴圈，請檢查設定。");
+                    toast.error(`模擬超過 ${maxDays} 天仍未停止，可能陷入無限迴圈，請檢查停止條件設定。`);
                     break;
                 }
                 vd += 1;
@@ -470,8 +471,9 @@ export default function ExpCounter() {
                         counter.med[i] += cal[3] * medAmount[i];
                     })
 
-                    if (gains <= 0) {
-                        alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
+                    if (isNaN(gains) || gains <= 0) {
+                        if (isNaN(gains)) toast.error("數值異常（NaN），請檢查至寶設定或洞府靈氣是否為0。");
+                        else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                         break;
                     }
                     records.push(sum);
@@ -733,12 +735,12 @@ export default function ExpCounter() {
     const starSeaCost = 100
         * (gods[0][0] === 5 ? 0.85 : 1)
         * conversionFactor;
-    const starSeaRecovery = 96 * godRegent[gods[0][0]] + 100;
+    const starSeaRecovery = (gods[0][0] >= 0) ? (96 * godRegent[gods[0][0]] + 100) : 0;
     const starSeaTimes = cal[6] ? starSeaRecovery / starSeaCost : 0;
     const godSpeed0 = starSeaTimes * gods[0][1] * 10000;
 
     const useEnergy = (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100);
-    const mirrorRecovery = 96 * godRegent[gods[1][0]] + 200;
+    const mirrorRecovery = (gods[1][0] >= 0) ? (96 * godRegent[gods[1][0]] + 200) : 0;
     const mirrorTimes = cal[6] ? mirrorRecovery / useEnergy : 0;
     const mirrorEffectiveTimes = mirrorTimes * (1 + (mirrorDouble && gods[1][0] === 5 ? 0.15 : 0));
     const godSpeed1 = mirrorEffectiveTimes * gods[1][1] * 10000;
