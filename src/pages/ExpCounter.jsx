@@ -46,9 +46,7 @@ import { DataDisplay } from "../components/DataDisplay.jsx";
 import {
     exps,
     tierList,
-    redFruitList,
     effList,
-    tableChances,
     levelList,
     godBuff,
     godRegent,
@@ -91,14 +89,6 @@ export default function ExpCounter() {
             breatheBuf,
             medAmount,
             medExp,
-            tableType,
-            tableStopType,
-            tableTime,
-            tableCount,
-            tableExtra,
-            tableControl,
-            tableChance,
-            tableTierToStop,
             stoneLevel,
             stoneQuality,
             stoneForgeEnabled,
@@ -144,7 +134,6 @@ export default function ExpCounter() {
                 level: setLevel,
                 process: setProcess,
                 exp: setExp,
-                air: setOthersAir,
                 othersAir: setOthersAir,
                 voidAir: setVoidAir,
                 prevBuff: setPrevBuff,
@@ -153,14 +142,6 @@ export default function ExpCounter() {
                 breatheBuf: setBreatheBuf,
                 medAmount: setMedAmount,
                 medExp: setMedExp,
-                tableType: setTableType,
-                tableStopType: setTableStopType,
-                tableTime: setTableTime,
-                tableCount: setTableCount,
-                tableExtra: setTableExtra,
-                tableControl: setTableControl,
-                tableChance: setTableChance,
-                tableTierToStop: setTableTierToStop,
                 stoneLevel: setStoneLevel,
                 stoneQuality: setStoneQuality,
                 stoneForgeEnabled: setStoneForgeEnabled,
@@ -200,37 +181,6 @@ export default function ExpCounter() {
             toast.success("Loaded!")
         }
     };
-
-    const eat = (c, t = 1, ct) => {
-        ct.eat += t;
-        let gain = redFruitList[tier] * 1.8 * (1.5 * tableControl[2]);
-        let totalGain = 0;
-        while (t > 0) {
-            c += 1;
-            t -= 1;
-            if (c >= 6) {
-                c = 0;
-                totalGain += gain * 2.7;
-                ct.doubles += 1;
-            } else {
-                if (tableChance === 0) {
-                    totalGain += gain;
-                } else if (tableChance === 1) {
-                    if (Math.random() < 0.35) {
-                        c = 0
-                        totalGain += gain * 2.7;
-                        ct.doubles += 1;
-                    } else {
-                        totalGain += gain;
-                    }
-                } else {
-                    totalGain += gain * 2.7;
-                    ct.doubles += 1;
-                }
-            }
-        }
-        return [totalGain, c, ct]
-    }
 
     const checkIsPerfect = (tier, level, process, exp) => {
         if (level !== 2) return false;
@@ -287,13 +237,11 @@ export default function ExpCounter() {
             extra: 0,
             breathe: 0,
             med: 0,
-            table: 0,
             stone: 0,
             god: 0,
         };
         let godEnergy = [0, 0];
         let chargeTime = 0;
-        let fruitAmount = tableCount;
         let counter = {
             breathe: 0,
             med: [0, 0, 0, 0, 0, 0],
@@ -304,9 +252,6 @@ export default function ExpCounter() {
         let reachDays = {};
         let gods1 = JSON.parse(JSON.stringify(gods));
         let gains = 0;
-        let tb = 0;
-        let inc = 0;
-        let tableCanEat = false;
         let completeBuff = 0;
         if (!cal[6]) {
             gods1[0][0] = -1;
@@ -364,13 +309,6 @@ export default function ExpCounter() {
                     nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
                 }
             }
-            if ((tableType === 0 || (tableStopType ? Math.floor(vd / 10800) >= tableTime : _.every([PS[now].tier, PS[now].level, PS[now].process, PS[now].exp], (n, i) => n >= Object.values(tableTierToStop)[i])) && tableType === 1) && cal[4] && !tableCanEat) {
-                tableCanEat = true;
-                [gains, tb, counter] = eat(tb, fruitAmount, counter);
-                inc += gains;
-                sum.table += gains;
-                fruitAmount = 0;
-            }
             let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
             const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
             let fenqiMult = 1;
@@ -426,12 +364,10 @@ export default function ExpCounter() {
                     counter.doubles += 1;
                 }
 
-                // 納靈石一次性收益（每日）
                 const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
                 inc += stoneDaily;
                 sum.stone += stoneDaily;
 
-                // 逆塵珠
                 if (nichenzhuEnabled) {
                     const maxDailyUses = 20;
                     const currentDay = Math.floor(vd / 10800);
@@ -475,13 +411,11 @@ export default function ExpCounter() {
                     }
                 }
 
-                // 吐納（使用頂層計算的 breatheSpeed，已包含自訂邏輯）
                 const breatheSpeedNow = breatheSpeed;
                 inc += breatheSpeedNow;
                 sum.breathe += breatheSpeedNow;
                 counter.breathe += breatheTime;
 
-                // 丹藥
                 [...Array(5).keys()].forEach((i) => {
                     let med = cal[3] * medExp[i] * medAmount[i] * 10000;
                     inc += med;
@@ -489,31 +423,7 @@ export default function ExpCounter() {
                     counter.med[i] += cal[3] * medAmount[i];
                 })
 
-                // 化靈臺
-                if (cal[4]) {
-                    let day = ((new Date()).getDay() + Math.floor(vd / 10800) - 1) % 7;
-                    if ([3, 5, 0].includes(day)) {
-                        if (tableType === 0 || tableCanEat) {
-                            [gains, tb, counter] = eat(tb, 3, counter);
-                            inc += gains;
-                            sum.table += gains;
-                        } else if (tableType === 1 && !tableCanEat) {
-                            fruitAmount += 3;
-                        }
-                    }
-                    if (day === 1) {
-                        let am = 6 * tableControl[0] + 6 * tableControl[1] + tableExtra;
-                        if (tableType === 0 || tableCanEat) {
-                            [gains, tb, counter] = eat(tb, am, counter);
-                            inc += gains;
-                            sum.table += gains;
-                        } else if (tableType === 1 && !tableCanEat) {
-                            fruitAmount += am;
-                        }
-                    }
-                }
-
-                if (inc <= 0 && (!cal[4] || [2, 3].includes(tableType) || (tableType === 1 && tableStopType === 0))) {
+                if (inc <= 0) {
                     alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                     break;
                 }
@@ -521,15 +431,12 @@ export default function ExpCounter() {
                 sum = {
                     base: 0,
                     extra: 0,
-                    customAdd: 0,
                     breathe: 0,
                     med: 0,
-                    table: 0,
                     stone: 0,
                     god: 0
                 };
             }
-            // 基礎修煉（持續）
             inc += speed1 + extra;
             sum.base += speed1;
             sum.extra += extra;
@@ -651,8 +558,6 @@ export default function ExpCounter() {
         setCounters(counter);
         setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
         return vd;
-        log.add(`逆塵珠總使用次數: ${nichenzhuUseCount}`);
-        log.add(`逆塵珠總收益: ${formatNumber(nichenzhuTotalGain)} 修為`);
     };
 
     const isMobile = window.mobileCheck();
@@ -670,14 +575,6 @@ export default function ExpCounter() {
     const [breatheBuf, setBreatheBuf] = useState(100);
     const [medAmount, setMedAmount] = useState([0, 0, 0, 0, 0, 0]);
     const [medExp, setMedExp] = useState([0, 0, 0, 0, 0, 0]);
-    const [tableType, setTableType] = useState(3);
-    const [tableStopType, setTableStopType] = useState(1);
-    const [tableTime, setTableTime] = useState(0);
-    const [tableCount, setTableCount] = useState(0);
-    const [tableExtra, setTableExtra] = useState(0);
-    const [tableControl, setTableControl] = useState([false, false, true]);
-    const [tableChance, setTableChance] = useState(1);
-    const [tableTierToStop, setTableTierToStop] = useState({ tier: 4, level: 0, process: 0, exp: 0 });
     const [stoneLevel, setStoneLevel] = useState(6);
     const [stoneQuality, setStoneQuality] = useState(3);
     const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
@@ -741,7 +638,6 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
-    // ---- 核心計算 ----
     const air = tier === 1 ? voidAir : othersAir;
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
@@ -773,18 +669,11 @@ export default function ExpCounter() {
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
 
-    // ---- 吐納（新邏輯） ----
     const breatheBase = customBreatheBase ? customBreatheValue : breatheList[tier][0];
     const breatheSpeed = cal[2] ? (customBreatheBase ? customBreatheValue : breatheBase * breatheBuf / 100 * breatheTime * 1.9) : 0;
 
-    // ---- 丹藥 ----
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
 
-    // ---- 化靈臺 ----
-    const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
-    const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
-
-    // ---- 至寶 ----
     let conversionFactor = 1;
     if (starSeaConversion === 1) conversionFactor = 0.8;
     else if (starSeaConversion === 2) conversionFactor = 0.95;
@@ -802,37 +691,30 @@ export default function ExpCounter() {
     const godSpeed1 = mirrorEffectiveTimes * gods[1][1] * 10000;
     const godSpeed = [godSpeed0, godSpeed1];
 
-    // ---- 納靈石（新公式，無額外收益） ----
     const baseAbsorptionDisplay = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
     const stoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) * forge2MultiplierDisplay * (1 + qualityBonusDisplay);
-    // 修煉周天 = air * (finalEfficiency / 100)  即每秒獲得修為（周天）
     const zhouTian = air * (finalEfficiency / 100);
     const stoneSpeedPerDay = zhouTian * stoneMultiplierDisplay * 10800 * cal[5];
 
-    // ---- 合道爐 ----
     const furnaceQualityBonus = furnaceQualityList[furnaceQuality] || 0;
     const furnaceForge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
     const furnaceForge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
     const furnaceTotalBonus = (furnaceQualityBonus + furnaceForge1) * furnaceForge2;
     const purpleFurnaceSpeedDisplay = furnaceEnabled ? Math.round(speed * furnaceTotalBonus * 100) / 100 : 0;
 
-    // ---- 逆塵珠基礎 ----
     const nichenBaseSpeed = air * ((effectiveSpeed + totalPerfectionBonus) / 100);
     const nichenGainPerUse = nichenBaseSpeed * (1 + furnaceTotalBonus) * (nichenzhuStars >= 1 ? 120 : 100);
 
-    // ---- 每日總收益 ----
     const baseSpeedPerDay = baseSpeed * 10800;
     const extraSpeedPerDay = extraSpeed * 10800;
     const breatheSpeedPerDay = breatheSpeed;
     const medSpeedPerDay = medSpeed;
-    const tableSpeedPerDay = tableSpeed / 7;
     const godSpeedPerDay = godSpeed.reduce((a, b) => a + b);
-    const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay;
+    const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + godSpeedPerDay;
 
-    // ---- 逆塵珠 useEffect ----
     useEffect(() => {
         if (nichenzhuEnabled) {
             const config = nichenzhuConfig[nichenzhuStars];
@@ -1006,7 +888,6 @@ export default function ExpCounter() {
         );
     };
 
-    // ---- Render ----
     return (
         <Stack spacing={2} sx={{ my: 2 }}>
             <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1527,124 +1408,6 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
-                {/* 化靈臺 */}
-                <Accordion sx={{ width: "100%" }}>
-                    <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightblue" } }}>
-                        化靈臺
-                        <span>+{Math.round(tableSpeedPerDay * 100) / 100}</span>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                        <Stack spacing={2} direction={isMobile ? "column" : "row"} alignItems={"center"} justifyContent={"center"}>
-                            <ToggleButtonGroup
-                                exclusive
-                                onChange={(e, v) => v !== null ? setTableType(v) : null}
-                                value={tableType}
-                                orientation={"vertical"}
-                                fullWidth={isMobile}
-                                size={isMobile ? "small" : "medium"}
-                            >
-                                <ToggleButton value={0}>立即吃</ToggleButton>
-                                <ToggleButton value={1}>達成條件後吃</ToggleButton>
-                                <ToggleButton value={2}>最小進食量</ToggleButton>
-                                <ToggleButton value={3}>不吃</ToggleButton>
-                            </ToggleButtonGroup>
-                            <FormGroup>
-                                {["購買萬妖果禮包x2", "購買萬妖令禮包", "目前最高等級(+50%)"].map((t, i) => (
-                                    <FormControlLabel
-                                        checked={tableControl[i]}
-                                        onChange={(e, v) => {
-                                            let newControl = Array.from(tableControl);
-                                            newControl[i] = v;
-                                            setTableControl(newControl);
-                                        }}
-                                        control={<Checkbox />}
-                                        label={t}
-                                        key={t}
-                                    />
-                                ))}
-                            </FormGroup>
-                            <Slider
-                                sx={isMobile ? {} : { height: "100px" }}
-                                orientation={isMobile ? "horizontal" : "vertical"}
-                                defaultValue={1}
-                                value={tableChance}
-                                onChange={(e, v) => setTableChance(v)}
-                                valueLabelDisplay={isMobile ? "on" : "auto"}
-                                valueLabelFormat={(v) => ["非酋(全保底)", "正常(期望機率)", "歐皇(全靈湧)"][v]}
-                                step={null}
-                                min={0}
-                                max={2}
-                                marks={[{ value: 0 }, { value: 1 }, { value: 2 }]}
-                            />
-                            <Stack spacing={2}>
-                                <TextField
-                                    label={"當前果子數量"}
-                                    type={"number"}
-                                    value={tableCount}
-                                    onChange={(e) => setTableCount(parseFloat(e.target.value))}
-                                />
-                                <TextField
-                                    label={"每週額外果子數量"}
-                                    type={"number"}
-                                    value={tableExtra}
-                                    onChange={(e) => setTableExtra(parseFloat(e.target.value))}
-                                />
-                            </Stack>
-                        </Stack>
-                        <Collapse in={tableType === 1}>
-                            <Stack direction={isMobile ? "column" : "row"} p={3} justifyContent={"space-around"} alignItems={"center"} spacing={2}>
-                                <ToggleButtonGroup
-                                    exclusive
-                                    onChange={(e, v) => v !== null ? setTableStopType(v) : null}
-                                    value={tableStopType}
-                                    orientation={isMobile ? "horizontal" : "vertical"}
-                                >
-                                    <ToggleButton value={0}>修為</ToggleButton>
-                                    <ToggleButton value={1}>時間</ToggleButton>
-                                </ToggleButtonGroup>
-                                {tableStopType ?
-                                    <FormControl>
-                                        <Input
-                                            value={tableTime}
-                                            onChange={(e) => setTableTime(parseFloat(e.target.value))}
-                                            type="number"
-                                            endAdornment={"天"}
-                                        />
-                                    </FormControl> :
-                                    <ExpSelector
-                                        full={false}
-                                        setData={setTableTierToStop}
-                                        lock={true}
-                                        tier={tier}
-                                        level={level}
-                                        process={process}
-                                    />
-                                }
-                                後吃果子
-                            </Stack>
-                        </Collapse>
-                        <Stack p={!isMobile * 3} pt={3} sx={{ "div": { display: "flex", justifyContent: "space-between" } }}>
-                            <Divider />
-                            {[
-                                { label: "萬妖果(紅)基礎修為:", value: redFruitList[tier] },
-                                { label: "靈氣球修為加成:", value: `*1.8 ${tableControl[2] ? "*1.5" : ""}` },
-                                { label: "數量(每周):", value: `9 ${tableControl[0] ? "+6" : ""} ${tableControl[1] ? "+6" : ""}` },
-                                { label: "靈湧機率:", value: `${tableChances[tableChance]}%` },
-                                { label: "期望修為:", value: [0, 3].includes(tableType) ? `${formatNumber(tableSpeed)} / 周` : "請使用計算功能" }
-                            ].map(({ label, value }) => (
-                                <>
-                                    <Box key={label}>
-                                        <Typography fontSize={isMobile ? "medium" : "x-large"} color={"textSecondary"}>{label}</Typography>
-                                        <Typography fontSize={isMobile ? "large" : "x-large"} color={"textSecondary"}>{value}</Typography>
-                                    </Box>
-                                    <Divider key={label + "-divider"} />
-                                </>
-                            ))}
-                        </Stack>
-                    </AccordionDetails>
-                    <AccordionActions>*預設所有等級已升滿 *一次過吃的時候會消耗所有萬妖果（會益出修為），不會因為達成完滿而剩下果實</AccordionActions>
-                </Accordion>
-
                 {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
@@ -1727,7 +1490,6 @@ export default function ExpCounter() {
                                         />
                                     }
                                 </Stack>
-                                {/* 額外收益已刪除 */}
                             </Stack>
                         )}
                         <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
@@ -2010,7 +1772,6 @@ export default function ExpCounter() {
                     <div style={{ color: "lightgreen" }}>+{formatNumber(extraSpeedPerDay)}</div>
                     <div style={{ color: "orange" }}>+{formatNumber(breatheSpeedPerDay)}</div>
                     <div style={{ color: "magenta" }}>+{formatNumber(medSpeedPerDay)}</div>
-                    <div style={{ color: "lightblue" }}>+{formatNumber(tableSpeedPerDay)}</div>
                     <div style={{ color: "gold" }}>+{formatNumber(stoneSpeedPerDay)}</div>
                     <div style={{ color: "red" }}>≈+{formatNumber(godSpeedPerDay)}</div>
                 </Stack>

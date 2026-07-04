@@ -1,9 +1,11 @@
+// src/main.jsx
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
 import {createHashRouter, RouterProvider} from "react-router-dom";
 import App from "./App.jsx";
 import ExpCounter from "./pages/ExpCounter.jsx";
+import OrderPage from "./pages/order.jsx";
 import {ToastContainer} from "react-toastify";
 
 window.mobileCheck = function() {
@@ -20,6 +22,10 @@ const router = createHashRouter([
             {
                 path: "exp",
                 element: <ExpCounter/>
+            },
+            {
+                path: "order",
+                element: <OrderPage/>
             }
         ]
     }
@@ -33,4 +39,3 @@ createRoot(document.getElementById("root")).render(
         />
     </StrictMode>
 );
-
