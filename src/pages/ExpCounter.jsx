@@ -46,7 +46,6 @@ import {
     godBuff,
     godRegent,
     buffs,
-    chartLs,
     breatheList,
     processList,
     STONE_SYSTEM,
@@ -942,6 +941,16 @@ export default function ExpCounter() {
         );
     };
 
+    // 手動定義不包含化靈臺的 checkbox 列表
+    const myChartLabels = [
+        ['修煉速度', '修煉速度', 'white'],
+        ['額外吸收率', '額外吸收率', 'lightgreen'],
+        ['吐吶', '吐吶', 'orange'],
+        ['丹藥', '丹藥', 'magenta'],
+        ['納靈石', '納靈石', 'gold'],
+        ['至寶', '至寶', 'red']
+    ];
+
     return (
         <Stack spacing={2} sx={{ my: 2 }}>
             <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1011,6 +1020,7 @@ export default function ExpCounter() {
             </Stack>
 
             <Box sx={{ "*": { "*.MuiAccordionSummary-content": { justifyContent: "space-between" } } }}>
+                {/* 修煉速度 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "white" } }}>
                         修煉速度
@@ -1066,6 +1076,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 額外吸收率 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
                         額外吸收率
@@ -1330,6 +1341,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 吐納 - 已修改二選一 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
                         吐吶
@@ -1414,6 +1426,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 丹藥 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "magenta" } }}>
                         丹藥
@@ -1458,6 +1471,7 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
+                {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
                         納靈石
@@ -1568,6 +1582,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 至寶 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "red" } }}>
                         至寶
@@ -1679,6 +1694,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 輔修相關 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "grey" } }}>
                         輔修相關
@@ -1838,8 +1854,9 @@ export default function ExpCounter() {
 
             <Stack alignItems={"center"}>
                 <FormGroup row>
-                    {chartLs.map((i, j) =>
+                    {myChartLabels.map((i, j) => (
                         <FormControlLabel
+                            key={i[0]}
                             color={i[2]}
                             checked={cal[j]}
                             control={<Checkbox sx={{ "svg": { color: i[2] } }} />}
@@ -1849,9 +1866,8 @@ export default function ExpCounter() {
                                 newCal[j] = v;
                                 setCal(newCal);
                             }}
-                            key={i[0]}
                         />
-                    )}
+                    ))}
                 </FormGroup>
             </Stack>
 
