@@ -1854,16 +1854,22 @@ export default function ExpCounter() {
 
             <Stack alignItems={"center"}>
                 <FormGroup row>
-                    {myChartLabels.map((i, j) => (
+                    {[
+                        { label: '修煉速度', color: 'white', index: 0 },
+                        { label: '額外吸收率', color: 'lightgreen', index: 1 },
+                        { label: '吐吶', color: 'orange', index: 2 },
+                        { label: '丹藥', color: 'magenta', index: 3 },
+                        { label: '納靈石', color: 'gold', index: 5 },
+                        { label: '至寶', color: 'red', index: 6 }
+                    ].map((item) => (
                         <FormControlLabel
-                            key={i[0]}
-                            color={i[2]}
-                            checked={cal[j]}
-                            control={<Checkbox sx={{ "svg": { color: i[2] } }} />}
-                            label={i[1]}
+                            key={item.label}
+                            checked={cal[item.index]}
+                            control={<Checkbox sx={{ "svg": { color: item.color } }} />}
+                            label={item.label}
                             onChange={(e, v) => {
                                 let newCal = Array.from(cal);
-                                newCal[j] = v;
+                                newCal[item.index] = v;
                                 setCal(newCal);
                             }}
                         />
