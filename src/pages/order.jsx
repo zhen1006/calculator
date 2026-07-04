@@ -85,7 +85,6 @@ function simulateWanYao(
     isCurrentRealm,
     fruitCount
 ) {
-    // baseMap 的鍵值對應 GameData.tiers 的 id（0=築基 ... 9=金仙, 10=太乙, 11=大羅）
     const baseMap = {
         0: 65000,
         1: 65000,
@@ -222,15 +221,15 @@ function formatInteger(num) {
 export default function OtherCalculators() {
     const isMobile = window.mobileCheck?.() || false;
 
-    // --- 化靈台狀態 ---
     const [selectedRealm, setSelectedRealm] = useState('真仙');
     const [currentLevels, setCurrentLevels] = useState({ 修為: 1, 品質: 1, 靈湧: 1, 高品: 1 });
     const [targetLevels, setTargetLevels] = useState({ 修為: 30, 品質: 30, 靈湧: 30, 高品: 30 });
     const [wanYaoLingCount, setWanYaoLingCount] = useState(0);
+    const [weeklyExtraWanYao, setWeeklyExtraWanYao] = useState(0);
+    const [weeklyBuyWanYaoLing, setWeeklyBuyWanYaoLing] = useState(false);
 
-    // --- 萬妖果狀態 ---
-    const [tier, setTier] = useState(10); // 預設太乙 (id=10)
-    const [stage, setStage] = useState(2); // 預設後期 (id=2)
+    const [tier, setTier] = useState(10);
+    const [stage, setStage] = useState(2);
     const [cultivationLevel, setCultivationLevel] = useState(30);
     const [qualityLevel, setQualityLevel] = useState(30);
     const [spiritLevel, setSpiritLevel] = useState(30);
@@ -238,7 +237,6 @@ export default function OtherCalculators() {
     const [isCurrentRealm, setIsCurrentRealm] = useState(false);
     const [fruitCount, setFruitCount] = useState(100);
 
-    // --- 化靈台計算 ---
     const branches = ['修為', '品質', '靈湧', '高品'];
     const realmData = HUALINGTAI_DATA[selectedRealm];
     const perGain = PER_GAIN_MAP[selectedRealm] || 320;
@@ -255,8 +253,8 @@ export default function OtherCalculators() {
             }
             const start = currentLevels[branch] || 1;
             const end = targetLevels[branch] || 1;
-            if (start > end) {
-                branchDetails[branch] = { cost: 0, start, end, error: '目標等級不能小於當前等級' };
+            if (start >= end) {
+                branchDetails[branch] = { cost: 0, start, end };
                 return;
             }
             let cost = 0;
@@ -266,22 +264,30 @@ export default function OtherCalculators() {
             branchDetails[branch] = { cost, start, end };
             totalCost += cost;
         });
-        const totalTimesNeeded = Math.ceil(totalCost / perGain);
-        const effectiveTimes = Math.max(0, totalTimesNeeded - wanYaoLingCount);
-        const weeksNeeded = Math.ceil(effectiveTimes / 3);
+
+        const baseTimes = 3;
+        const extraTimes = weeklyBuyWanYaoLing ? 2 : 0;
+        const weeklyTimes = baseTimes + extraTimes;
+        const weeklyGain = perGain * weeklyTimes + weeklyExtraWanYao;
+
+        const effectiveCost = Math.max(0, totalCost - wanYaoLingCount * perGain);
+        const weeksNeeded = weeklyGain > 0 ? Math.ceil(effectiveCost / weeklyGain) : Infinity;
+
         return {
             totalCost,
-            totalTimesNeeded,
-            effectiveTimes,
+            effectiveCost,
             weeksNeeded,
             perGain,
             wanYaoLingCount,
-            branchDetails
+            weeklyExtraWanYao,
+            weeklyBuyWanYaoLing,
+            weeklyGain,
+            weeklyTimes,
+            branchDetails,
         };
     };
     const result = calculateUpgrade();
 
-    // --- 計算階段總經驗 ---
     const stageExpData = useMemo(() => {
         const tierData = GameData.experience.find(d => d.tier === tier);
         if (!tierData) return { expArray: [], total: 0 };
@@ -290,7 +296,6 @@ export default function OtherCalculators() {
         return { expArray, total };
     }, [tier, stage]);
 
-    // --- 萬妖果模擬結果 ---
     const wanYaoResult = useMemo(() => {
         return simulateWanYao(
             tier,
@@ -303,10 +308,8 @@ export default function OtherCalculators() {
         );
     }, [tier, cultivationLevel, qualityLevel, spiritLevel, highQualityLevel, isCurrentRealm, fruitCount]);
 
-    // 計算佔階段百分比
     const stagePercent = stageExpData.total > 0 ? (wanYaoResult.avgGain / stageExpData.total) * 100 : null;
 
-    // 取得境界與階段名稱
     const tierName = GameData.tiers.find(t => t.id === tier)?.name || '';
     const stageName = GameData.levels[stage]?.name || '';
 
@@ -314,7 +317,6 @@ export default function OtherCalculators() {
         <Stack spacing={3} sx={{ p: 2, maxWidth: 900, mx: 'auto' }}>
             <Typography variant="h4" align="center">其餘計算器</Typography>
 
-            {/* -------- 化靈台升級計算 -------- */}
             <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                     <Typography variant="h6">化靈台升級計算</Typography>
@@ -337,6 +339,23 @@ export default function OtherCalculators() {
                                 onChange={(e) => setWanYaoLingCount(parseInt(e.target.value) || 0)}
                                 sx={{ width: 150 }}
                                 inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                                label="每週額外萬妖魄"
+                                type="number"
+                                value={weeklyExtraWanYao}
+                                onChange={(e) => setWeeklyExtraWanYao(parseInt(e.target.value) || 0)}
+                                sx={{ width: 150 }}
+                                inputProps={{ min: 0 }}
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={weeklyBuyWanYaoLing}
+                                        onChange={(e) => setWeeklyBuyWanYaoLing(e.target.checked)}
+                                    />
+                                }
+                                label="每週購買萬妖令（+2 次）"
                             />
                         </Stack>
 
@@ -388,7 +407,6 @@ export default function OtherCalculators() {
                                             return (
                                                 <Typography key={branch} variant="body2">
                                                     {branch}: 從 {detail.start} 級到 {detail.end} 級，消耗 {formatInteger(detail.cost)} 萬妖魄
-                                                    {detail.error && ` (${detail.error})`}
                                                 </Typography>
                                             );
                                         })}
@@ -398,15 +416,21 @@ export default function OtherCalculators() {
                                         </Typography>
                                         <Typography variant="body1">
                                             每次獲取: {result.perGain}，每週基礎 3 次
+                                            {result.weeklyBuyWanYaoLing && ' + 購買 2 次'}
                                         </Typography>
                                         <Typography variant="body1">
-                                            需要通關總次數: <strong>{result.totalTimesNeeded}</strong> 次
+                                            每週獲取：{result.perGain} × {result.weeklyTimes} 次
+                                            {result.weeklyExtraWanYao > 0 && ` + 額外 ${result.weeklyExtraWanYao}`}
+                                            = <strong>{result.weeklyGain}</strong> 萬妖魄
                                         </Typography>
                                         <Typography variant="body1">
-                                            扣除萬妖令 {result.wanYaoLingCount} 次後，仍需 <strong>{result.effectiveTimes}</strong> 次
+                                            需要通關總次數: <strong>{Math.ceil(result.totalCost / result.perGain)}</strong> 次
                                         </Typography>
                                         <Typography variant="body1">
-                                            需要週數: <strong>{result.weeksNeeded}</strong> 週
+                                            扣除萬妖令 {result.wanYaoLingCount} 次（{result.wanYaoLingCount * result.perGain} 萬妖魄）後，仍需 <strong>{result.effectiveCost}</strong> 萬妖魄
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            需要週數: <strong>{result.weeksNeeded === Infinity ? '∞' : result.weeksNeeded}</strong> 週
                                         </Typography>
                                     </Stack>
                                 </CardContent>
@@ -416,14 +440,12 @@ export default function OtherCalculators() {
                 </AccordionDetails>
             </Accordion>
 
-            {/* -------- 萬妖果模擬 -------- */}
             <Accordion>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                     <Typography variant="h6">萬妖果模擬</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                     <Stack spacing={2}>
-                        {/* 第一行：境界、階段、萬妖果數量、是否當前境界 */}
                         <Stack direction={isMobile ? "column" : "row"} spacing={2} flexWrap="wrap" alignItems="center">
                             <FormControl sx={{ minWidth: 100 }}>
                                 <Select value={tier} onChange={(e) => setTier(parseInt(e.target.value))}>
@@ -460,7 +482,6 @@ export default function OtherCalculators() {
 
                         <Divider />
 
-                        {/* 第二行：四個分支等級 */}
                         <Stack direction={isMobile ? "column" : "row"} spacing={2} flexWrap="wrap" alignItems="center">
                             <TextField
                                 label="修為等級"
