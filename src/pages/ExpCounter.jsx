@@ -8,7 +8,9 @@ import {
     Card,
     CardContent,
     Checkbox,
+    Collapse,
     Dialog,
+    DialogActions,
     DialogContent,
     DialogTitle,
     Divider,
@@ -26,9 +28,12 @@ import {
     RadioGroup,
     Rating,
     Select,
+    Slider,
     Stack,
     styled,
     TextField,
+    ToggleButton,
+    ToggleButtonGroup,
     Typography
 } from "@mui/material";
 import { useState, useEffect } from "react";
@@ -41,7 +46,9 @@ import { DataDisplay } from "../components/DataDisplay.jsx";
 import {
     exps,
     tierList,
+    redFruitList,
     effList,
+    tableChances,
     levelList,
     godBuff,
     godRegent,
@@ -84,6 +91,14 @@ export default function ExpCounter() {
             breatheBuf,
             medAmount,
             medExp,
+            tableType,
+            tableStopType,
+            tableTime,
+            tableCount,
+            tableExtra,
+            tableControl,
+            tableChance,
+            tableTierToStop,
             stoneLevel,
             stoneQuality,
             stoneForgeEnabled,
@@ -120,66 +135,16 @@ export default function ExpCounter() {
     };
 
     const load = (i) => {
-        try {
-            const raw = localStorage.getItem(`data ${i}`);
-            if (!raw) {
-                toast.error('存檔不存在');
-                return;
-            }
-            const data = JSON.parse(raw);
-            const defaultState = {
-                cal: [true, true, true, true, true, true, true],
-                tier: 4,
-                level: 0,
-                process: 0,
-                exp: 0,
-                othersAir: 0,
-                voidAir: 0,
-                prevBuff: 0,
-                currentBuff: 0,
-                breatheTime: 0,
-                breatheBuf: 100,
-                medAmount: [0,0,0,0,0,0],
-                medExp: [0,0,0,0,0,0],
-                stoneLevel: 6,
-                stoneQuality: 3,
-                stoneForgeEnabled: false,
-                stoneForgeAbsorption: 4.5,
-                stoneForgeMultiplierEnabled: false,
-                stoneForgeMultiplier: 1.15,
-                stoneSealEnabled: false,
-                furnaceEnabled: false,
-                furnaceQuality: 3,
-                furnaceForge1Enabled: false,
-                furnaceForge1Percent: 6.75,
-                furnaceForge2Enabled: false,
-                furnaceForge2Multiplier: 1.18,
-                gods: [[-1,0], [-1,0,false]],
-                mirrorDouble: true,
-                starSeaConversion: 0,
-                dir: 0,
-                subProcess: { tier: 4, level: 0, process: 0, exp: 0 },
-                thirdProcess: { tier: 4, level: 0, process: 0, exp: 0 },
-                fenqiEnabled: false,
-                fenqiBonus: 0,
-                yaojieEnabled: false,
-                yaojieBonus: 0,
-                wanjieTianyuanEnabled: false,
-                wanjieTianyuanBonus: 0,
-                nichenzhuEnabled: false,
-                nichenzhuStars: 0,
-                nichenzhuTransform: false,
-                customBreatheBase: false,
-                customBreatheValue: 0,
-                customEffective: false,
-            };
-            const merged = { ...defaultState, ...data };
+        let data = localStorage.getItem(`data ${i}`);
+        if (data !== null) {
+            data = JSON.parse(data);
             const setters = {
                 cal: setCal,
                 tier: setTier,
                 level: setLevel,
                 process: setProcess,
                 exp: setExp,
+                air: setOthersAir,
                 othersAir: setOthersAir,
                 voidAir: setVoidAir,
                 prevBuff: setPrevBuff,
@@ -188,6 +153,14 @@ export default function ExpCounter() {
                 breatheBuf: setBreatheBuf,
                 medAmount: setMedAmount,
                 medExp: setMedExp,
+                tableType: setTableType,
+                tableStopType: setTableStopType,
+                tableTime: setTableTime,
+                tableCount: setTableCount,
+                tableExtra: setTableExtra,
+                tableControl: setTableControl,
+                tableChance: setTableChance,
+                tableTierToStop: setTableTierToStop,
                 stoneLevel: setStoneLevel,
                 stoneQuality: setStoneQuality,
                 stoneForgeEnabled: setStoneForgeEnabled,
@@ -218,19 +191,46 @@ export default function ExpCounter() {
                 nichenzhuTransform: setNichenzhuTransform,
                 customBreatheBase: setCustomBreatheBase,
                 customBreatheValue: setCustomBreatheValue,
-                customEffective: setCustomEffective,
             };
             Object.entries(setters).forEach(([key, setter]) => {
-                if (merged[key] !== undefined) {
-                    setter(merged[key]);
+                if (data[key] !== undefined) {
+                    setter(data[key]);
                 }
             });
-            toast.success("讀取成功！");
-        } catch (error) {
-            console.error('讀取存檔失敗：', error);
-            toast.error('存檔資料損毀或版本不相容，請刪除或重新存檔。');
+            toast.success("Loaded!")
         }
     };
+
+    const eat = (c, t = 1, ct) => {
+        ct.eat += t;
+        let gain = redFruitList[tier] * 1.8 * (1.5 * tableControl[2]);
+        let totalGain = 0;
+        while (t > 0) {
+            c += 1;
+            t -= 1;
+            if (c >= 6) {
+                c = 0;
+                totalGain += gain * 2.7;
+                ct.doubles += 1;
+            } else {
+                if (tableChance === 0) {
+                    totalGain += gain;
+                } else if (tableChance === 1) {
+                    if (Math.random() < 0.35) {
+                        c = 0
+                        totalGain += gain * 2.7;
+                        ct.doubles += 1;
+                    } else {
+                        totalGain += gain;
+                    }
+                } else {
+                    totalGain += gain * 2.7;
+                    ct.doubles += 1;
+                }
+            }
+        }
+        return [totalGain, c, ct]
+    }
 
     const checkIsPerfect = (tier, level, process, exp) => {
         if (level !== 2) return false;
@@ -279,47 +279,112 @@ export default function ExpCounter() {
     };
 
     const calc = (mainP, subP = {}, thirdP = {}) => {
-        try {
-            let maxDays = 10000;
-            let maxIter = maxDays * 10800;
-            let log = new Set();
-            let vd = 0;
-            let records = [];
-            let sum = {
-                base: 0,
-                extra: 0,
-                breathe: 0,
-                med: 0,
-                stone: 0,
-                god: 0,
-            };
-            let godEnergy = [0, 0];
-            let chargeTime = 0;
-            let counter = {
-                breathe: 0,
-                med: [0, 0, 0, 0, 0, 0],
-                chance: 0,
-                doubles: 0,
-                eat: 0,
-            }
-            let reachDays = {};
-            let gods1 = JSON.parse(JSON.stringify(gods));
-            let gains = 0;
-            if (!cal[6]) {
-                gods1[0][0] = -1;
-                gods1[1][0] = -1;
-            }
-            let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
-            let now = dir;
+        let log = new Set();
+        let vd = 0;
+        let records = [];
+        let sum = {
+            base: 0,
+            extra: 0,
+            breathe: 0,
+            med: 0,
+            table: 0,
+            stone: 0,
+            god: 0,
+        };
+        let godEnergy = [0, 0];
+        let chargeTime = 0;
+        let fruitAmount = tableCount;
+        let counter = {
+            breathe: 0,
+            med: [0, 0, 0, 0, 0, 0],
+            chance: 0,
+            doubles: 0,
+            eat: 0,
+        }
+        let reachDays = {};
+        let gods1 = JSON.parse(JSON.stringify(gods));
+        let gains = 0;
+        let tb = 0;
+        let inc = 0;
+        let tableCanEat = false;
+        let completeBuff = 0;
+        if (!cal[6]) {
+            gods1[0][0] = -1;
+            gods1[1][0] = -1;
+        }
+        let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
+        let now = dir;
+        let purpleFurnaceSpeed = 0;
+        if (furnaceEnabled) {
+            const quality = furnaceQualityList[furnaceQuality] || 0;
+            const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+            const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+            const totalBonus = (quality + forge1) * forge2;
+            purpleFurnaceSpeed = speed * totalBonus;
+        }
+        let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
+        let nichenzhuTotalGain = 0;
+        let nichenzhuUseCount = 0;
+        let dailyNichenzhuUses = {};
 
-            const calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
+        let conversionFactor = 1;
+        if (starSeaConversion === 1) conversionFactor = 0.8;
+        else if (starSeaConversion === 2) conversionFactor = 0.95;
+        const starSeaCost = 100
+            * (gods1[0][0] === 5 ? 0.85 : 1)
+            * conversionFactor;
+
+        const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
+        const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
+        const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
+
+        const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
+        const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+        const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+        const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+        const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
+
+        const checkIsPerfectInner = (tier, level, process, exp) => {
+            if (level !== 2) return false;
+            const tierExpData = exps[tier]?.[2];
+            if (!tierExpData) return false;
+            const totalExp = tierExpData.reduce((a, b) => a + b, 0);
+            const currentExp = tierExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+            return currentExp >= totalExp;
+        };
+
+        while (true) {
+            vd += 1;
+            chargeTime += 8;
+            if (chargeTime >= 900) {
+                chargeTime -= 900;
+                if (gods1[0][0] >= 0) godEnergy[0] += godRegent[gods1[0][0]] || 0;
+                if (gods1[1][0] >= 0) godEnergy[1] += godRegent[gods1[1][0]] || 0;
+                if (nichenzhuEnabled) {
+                    nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
+                }
+            }
+            if ((tableType === 0 || (tableStopType ? Math.floor(vd / 10800) >= tableTime : _.every([PS[now].tier, PS[now].level, PS[now].process, PS[now].exp], (n, i) => n >= Object.values(tableTierToStop)[i])) && tableType === 1) && cal[4] && !tableCanEat) {
+                tableCanEat = true;
+                [gains, tb, counter] = eat(tb, fruitAmount, counter);
+                inc += gains;
+                sum.table += gains;
+                fruitAmount = 0;
+            }
+            let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
             const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
             let fenqiMult = 1;
-            if (fenqiEnabled && fenqiBonus > 0) fenqiMult = 1 + (fenqiBonus / 100);
+            if (fenqiEnabled && fenqiBonus > 0) {
+                fenqiMult = 1 + (fenqiBonus / 100);
+            }
             let wanjieMult = 1;
-            if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) wanjieMult = 1 + (wanjieTianyuanBonus / 100);
+            if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
+                wanjieMult = 1 + (wanjieTianyuanBonus / 100);
+            }
             let yaojieMult = 1;
-            if (yaojieEnabled && yaojieBonus > 0) yaojieMult = 1 + (yaojieBonus / 100);
+            if (yaojieEnabled && yaojieBonus > 0) {
+                yaojieMult = 1 + (yaojieBonus / 100);
+            }
             const totalMult = fenqiMult * wanjieMult * yaojieMult;
             const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
             const currentBuffBonusInner = calculateCurrentBuffBonus(
@@ -336,283 +401,258 @@ export default function ExpCounter() {
             const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
             const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
             const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
-            if (speed1 + extra <= 0) {
-                toast.error("修煉速度為0，請檢查洞府靈氣、吸收率及倍率設定。");
-                return;
-            }
 
-            let purpleFurnaceSpeed = 0;
             if (furnaceEnabled) {
-                const quality = furnaceQualityList[furnaceQuality] || 0;
-                const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
-                const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
-                const totalBonus = (quality + forge1) * forge2;
-                purpleFurnaceSpeed = (speed1 + extra) * totalBonus;
+                PS[1].exp += purpleFurnaceSpeed;
             }
+            if (vd % 10800 === 0) {
+                if (gods1[0][0] >= 0) godEnergy[0] += 100;
+                if (gods1[1][0] >= 0) godEnergy[1] += 200;
+                counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
 
-            let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
-            let nichenzhuTotalGain = 0;
-            let nichenzhuUseCount = 0;
-            let dailyNichenzhuUses = {};
+                while (godEnergy[0] >= starSeaCost) {
+                    godEnergy[0] -= starSeaCost;
+                    sum.god += gods1[0][1] * 10000;
+                    inc += gods1[0][1] * 10000;
+                }
 
-            let conversionFactor = 1;
-            if (starSeaConversion === 1) conversionFactor = 0.8;
-            else if (starSeaConversion === 2) conversionFactor = 0.95;
-            const starSeaCost = 100
-                * (gods1[0][0] === 5 ? 0.85 : 1)
-                * conversionFactor;
+                let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
+                while (godEnergy[1] >= useEnergy) {
+                    if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
+                        godEnergy[1] -= useEnergy;
+                    }
+                    sum.god += gods1[1][1] * 10000;
+                    inc += gods1[1][1] * 10000;
+                    counter.doubles += 1;
+                }
 
-            const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
-            const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
-            const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
+                // 納靈石一次性收益（每日）
+                const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
+                inc += stoneDaily;
+                sum.stone += stoneDaily;
 
-            const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
-            const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
-            const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
-            const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-            const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
+                // 逆塵珠
+                if (nichenzhuEnabled) {
+                    const maxDailyUses = 20;
+                    const currentDay = Math.floor(vd / 10800);
+                    dailyNichenzhuUses[currentDay] = 0;
+                    if (nichenzhuEnergy >= nichenzhuEnergyCost) {
+                        const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
+                        const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
+                        const actualUses = Math.min(availableUses, remainingDailyUses);
+                        if (actualUses > 0) {
+                            const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
+                            const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+                            const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                            const currentBuffBonusInnerN = calculateCurrentBuffBonus(
+                                currentBuff,
+                                PS[0]?.tier,
+                                PS[0]?.level,
+                                PS[0]?.process,
+                                PS[0]?.exp,
+                                PS[1]?.tier,
+                                PS[1]?.level,
+                                PS[1]?.process,
+                                PS[1]?.exp
+                            );
+                            const totalPerfectionBonusInnerN = prevBuffBonusInnerN + currentBuffBonusInnerN;
+                            const baseSpeedForNichen = calcAirForNichen * ((effSpeedForNichen + totalPerfectionBonusInnerN) / 100);
+                            const furnaceBonus = furnaceEnabled ? (() => {
+                                const quality = furnaceQualityList[furnaceQuality] || 0;
+                                const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+                                const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+                                return (quality + forge1) * forge2;
+                            })() : 0;
+                            const nichenzhuGainPerUse = baseSpeedForNichen * (1 + furnaceBonus) * nichenzhuZhouTian;
+                            const totalGain = actualUses * nichenzhuGainPerUse;
+                            nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
+                            nichenzhuUseCount += actualUses;
+                            PS[1].exp += totalGain;
+                            nichenzhuTotalGain += totalGain;
+                            dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
+                            log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${nichenzhuZhouTian}周天/次）`);
+                        }
+                    }
+                }
 
-            while (true) {
-                if (--maxIter < 0) {
-                    toast.error(`模擬超過 ${maxDays} 天仍未停止，可能陷入無限迴圈，請檢查停止條件設定。`);
+                // 吐納（使用頂層計算的 breatheSpeed，已包含自訂邏輯）
+                const breatheSpeedNow = breatheSpeed;
+                inc += breatheSpeedNow;
+                sum.breathe += breatheSpeedNow;
+                counter.breathe += breatheTime;
+
+                // 丹藥
+                [...Array(5).keys()].forEach((i) => {
+                    let med = cal[3] * medExp[i] * medAmount[i] * 10000;
+                    inc += med;
+                    sum.med += med;
+                    counter.med[i] += cal[3] * medAmount[i];
+                })
+
+                // 化靈臺
+                if (cal[4]) {
+                    let day = ((new Date()).getDay() + Math.floor(vd / 10800) - 1) % 7;
+                    if ([3, 5, 0].includes(day)) {
+                        if (tableType === 0 || tableCanEat) {
+                            [gains, tb, counter] = eat(tb, 3, counter);
+                            inc += gains;
+                            sum.table += gains;
+                        } else if (tableType === 1 && !tableCanEat) {
+                            fruitAmount += 3;
+                        }
+                    }
+                    if (day === 1) {
+                        let am = 6 * tableControl[0] + 6 * tableControl[1] + tableExtra;
+                        if (tableType === 0 || tableCanEat) {
+                            [gains, tb, counter] = eat(tb, am, counter);
+                            inc += gains;
+                            sum.table += gains;
+                        } else if (tableType === 1 && !tableCanEat) {
+                            fruitAmount += am;
+                        }
+                    }
+                }
+
+                if (inc <= 0 && (!cal[4] || [2, 3].includes(tableType) || (tableType === 1 && tableStopType === 0))) {
+                    alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                     break;
                 }
-                vd += 1;
-                chargeTime += 8;
-                if (chargeTime >= 900) {
-                    chargeTime -= 900;
-                    if (gods1[0][0] >= 0) godEnergy[0] += godRegent[gods1[0][0]] || 0;
-                    if (gods1[1][0] >= 0) godEnergy[1] += godRegent[gods1[1][0]] || 0;
-                    if (nichenzhuEnabled) {
-                        nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
+                records.push(sum);
+                sum = {
+                    base: 0,
+                    extra: 0,
+                    customAdd: 0,
+                    breathe: 0,
+                    med: 0,
+                    table: 0,
+                    stone: 0,
+                    god: 0
+                };
+            }
+            // 基礎修煉（持續）
+            inc += speed1 + extra;
+            sum.base += speed1;
+            sum.extra += extra;
+
+            PS[now].exp += inc;
+            if (PS[now].exp >= exps[PS[now].tier][PS[now].level][PS[now].process]) {
+                PS[now].exp -= exps[PS[now].tier][PS[now].level][PS[now].process];
+                PS[now].process += 1;
+                log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
+                reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
+            }
+            if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
+                PS[now].process = 0;
+                PS[now].level += 1;
+                log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+            }
+            if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
+                const actualDays = Math.floor(vd / 10800);
+                log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
+                break;
+            }
+            if (stopType === 0) {
+                if (!dir) {
+                    if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
+                        PS[now].tier += 1;
+                        PS[now].level = 0;
                     }
-                }
-
-                if (furnaceEnabled) {
-                    PS[1].exp += purpleFurnaceSpeed;
-                }
-                if (vd % 10800 === 0) {
-                    if (gods1[0][0] >= 0) godEnergy[0] += 100;
-                    if (gods1[1][0] >= 0) godEnergy[1] += 200;
-                    counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
-
-                    while (godEnergy[0] >= starSeaCost) {
-                        godEnergy[0] -= starSeaCost;
-                        sum.god += gods1[0][1] * 10000;
-                        gains += gods1[0][1] * 10000;
+                    if (PS[now].level >= 3) {
+                        log.add("抵達圓滿");
+                        if (stopLevel === 0) break;
                     }
-
-                    let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
-                    while (godEnergy[1] >= useEnergy) {
-                        if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
-                            godEnergy[1] -= useEnergy;
-                        }
-                        sum.god += gods1[1][1] * 10000;
-                        gains += gods1[1][1] * 10000;
-                        counter.doubles += 1;
+                    if (now === 1 && (
+                        PS[now].tier > PS[0].tier - 1 ||
+                        (
+                            PS[now].tier === PS[0].tier - 1 &&
+                            PS[now].level >= 1
+                        )
+                    )) {
+                        log.add("抵達大成, 吸收率+20%");
+                        completeBuff = 20;
+                        if (stopLevel === 1) break;
                     }
-
-                    const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
-                    gains += stoneDaily;
-                    sum.stone += stoneDaily;
-
-                    if (nichenzhuEnabled) {
-                        const maxDailyUses = 20;
-                        const currentDay = Math.floor(vd / 10800);
-                        dailyNichenzhuUses[currentDay] = 0;
-                        if (nichenzhuEnergy >= nichenzhuEnergyCost) {
-                            const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
-                            const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
-                            const actualUses = Math.min(availableUses, remainingDailyUses);
-                            if (actualUses > 0) {
-                                const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
-                                const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
-                                const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
-                                const currentBuffBonusInnerN = calculateCurrentBuffBonus(
-                                    currentBuff,
-                                    PS[0]?.tier,
-                                    PS[0]?.level,
-                                    PS[0]?.process,
-                                    PS[0]?.exp,
-                                    PS[1]?.tier,
-                                    PS[1]?.level,
-                                    PS[1]?.process,
-                                    PS[1]?.exp
-                                );
-                                const totalPerfectionBonusInnerN = prevBuffBonusInnerN + currentBuffBonusInnerN;
-                                const baseSpeedForNichen = calcAirForNichen * ((effSpeedForNichen + totalPerfectionBonusInnerN) / 100);
-                                const furnaceBonus = furnaceEnabled ? (() => {
-                                    const quality = furnaceQualityList[furnaceQuality] || 0;
-                                    const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
-                                    const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
-                                    return (quality + forge1) * forge2;
-                                })() : 0;
-                                const nichenzhuGainPerUse = baseSpeedForNichen * (1 + furnaceBonus) * nichenzhuZhouTian;
-                                const totalGain = actualUses * nichenzhuGainPerUse;
-                                nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
-                                nichenzhuUseCount += actualUses;
-                                PS[1].exp += totalGain;
-                                nichenzhuTotalGain += totalGain;
-                                dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
-                                log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${nichenzhuZhouTian}周天/次）`);
-                            }
-                        }
+                    if (now === 1 && (
+                        PS[now].tier >= PS[0].tier
+                    )) {
+                        log.add("抵達完美");
+                        completeBuff = 20;
+                        if (stopLevel === 2) break;
                     }
-
-                    const breatheSpeedNow = breatheSpeed;
-                    gains += breatheSpeedNow;
-                    sum.breathe += breatheSpeedNow;
-                    counter.breathe += breatheTime;
-
-                    [...Array(5).keys()].forEach((i) => {
-                        let med = cal[3] * medExp[i] * medAmount[i] * 10000;
-                        gains += med;
-                        sum.med += med;
-                        counter.med[i] += cal[3] * medAmount[i];
-                    })
-
-                    if (isNaN(gains) || gains <= 0) {
-                        if (isNaN(gains)) toast.error("數值異常（NaN），請檢查至寶設定或洞府靈氣是否為0。");
-                        else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
+                    if (now === 1 && (
+                        PS[now].tier >= PS[0].tier &&
+                        PS[now].level >= 3
+                    )) {
+                        log.add("抵達半步, 吸收率+40%");
+                        completeBuff = 40;
+                        if (stopLevel === 3) break;
+                    }
+                    if (now === 2 && (
+                        PS[now].tier >= PS[0].tier &&
+                        PS[now].level >= 3
+                    )) {
+                        log.add("抵達準");
                         break;
                     }
-                    records.push(sum);
-                    sum = {
-                        base: 0,
-                        extra: 0,
-                        breathe: 0,
-                        med: 0,
-                        stone: 0,
-                        god: 0
-                    };
-                }
-                gains += speed1 + extra;
-                sum.base += speed1;
-                sum.extra += extra;
-
-                if (PS[now].level < 3) {
-                    const currentLevelExps = exps[PS[now].tier][PS[now].level];
-                    if (PS[now].exp >= currentLevelExps[PS[now].process]) {
-                        PS[now].exp -= currentLevelExps[PS[now].process];
-                        PS[now].process += 1;
-                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
-                        reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
+                    if (PS[now].level >= 3 && now === 0) {
+                        log.add("開始修練輔修");
+                        now = 1;
                     }
-                    if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                        PS[now].process = 0;
-                        PS[now].level += 1;
-                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+                    if (PS[now].level >= 3 && now === 1) {
+                        log.add("開始修練三修");
+                        now = 2;
                     }
-                }
-
-                if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
-                    const actualDays = Math.floor(vd / 10800);
-                    log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
+                } else if (PS[now].level >= 3) {
+                    console.log("抵達圓滿");
                     break;
                 }
-                if (stopType === 0) {
-                    if (!dir) {
-                        if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
-                            PS[now].tier += 1;
-                            PS[now].level = 0;
-                        }
-                        if (PS[now].level >= 3) {
-                            log.add("抵達圓滿");
-                            if (stopLevel === 0) break;
-                        }
-                        if (now === 1 && (
-                            PS[now].tier > PS[0].tier - 1 ||
-                            (
-                                PS[now].tier === PS[0].tier - 1 &&
-                                PS[now].level >= 1
-                            )
-                        )) {
-                            log.add("抵達大成, 吸收率+20%");
-                            if (stopLevel === 1) break;
-                        }
-                        if (now === 1 && (
-                            PS[now].tier >= PS[0].tier
-                        )) {
-                            log.add("抵達完美");
-                            if (stopLevel === 2) break;
-                        }
-                        if (now === 1 && (
-                            PS[now].tier >= PS[0].tier &&
-                            PS[now].level >= 3
-                        )) {
-                            log.add("抵達半步, 吸收率+40%");
-                            if (stopLevel === 3) break;
-                        }
-                        if (now === 2 && (
-                            PS[now].tier >= PS[0].tier &&
-                            PS[now].level >= 3
-                        )) {
-                            log.add("抵達準");
-                            break;
-                        }
-                        if (PS[now].level >= 3 && now === 0) {
-                            log.add("開始修練輔修");
-                            now = 1;
-                        }
-                        if (PS[now].level >= 3 && now === 1) {
-                            log.add("開始修練三修");
-                            now = 2;
-                        }
-                    } else {
-                        if (PS[now].level >= 3) {
-                            console.log("抵達圓滿");
-                            break;
-                        }
-                    }
-                }
-
-                gains = 0;
             }
-
-            const calculateLevelPercentage = (tier, level, process, exp) => {
-                if (level === 3) return 100;
-                const levelExpData = exps[tier]?.[level];
-                if (!levelExpData || levelExpData.length === 0) return 0;
-                const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
-                const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
-                return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
-            };
-
-            const finalResults = {
-                main: {
-                    tier: PS[0].tier,
-                    level: PS[0].level,
-                    process: PS[0].process,
-                    exp: PS[0].exp,
-                    percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
-                },
-                sub: {
-                    tier: PS[1].tier,
-                    level: PS[1].level,
-                    process: PS[1].process,
-                    exp: PS[1].exp,
-                    percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
-                },
-                third: {
-                    tier: PS[2].tier,
-                    level: PS[2].level,
-                    process: PS[2].process,
-                    exp: PS[2].exp,
-                    percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
-                }
-            };
-            setFinalResults(finalResults);
-            setLogs(Array.from(log));
-            setFullTime(vd);
-            setRecord(records);
-            counter.reachDays = reachDays;
-            setCounters(counter);
-            setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
-            return vd;
-        } catch (error) {
-            console.error(error);
-            toast.error("計算過程發生錯誤：" + error.message);
+            inc = 0;
         }
+
+        const calculateLevelPercentage = (tier, level, process, exp) => {
+            if (level === 3) return 100;
+            const levelExpData = exps[tier]?.[level];
+            if (!levelExpData || levelExpData.length === 0) return 0;
+            const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+            const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+            return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+        };
+
+        const finalResults = {
+            main: {
+                tier: PS[0].tier,
+                level: PS[0].level,
+                process: PS[0].process,
+                exp: PS[0].exp,
+                percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
+            },
+            sub: {
+                tier: PS[1].tier,
+                level: PS[1].level,
+                process: PS[1].process,
+                exp: PS[1].exp,
+                percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
+            },
+            third: {
+                tier: PS[2].tier,
+                level: PS[2].level,
+                process: PS[2].process,
+                exp: PS[2].exp,
+                percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
+            }
+        };
+        setFinalResults(finalResults);
+        setLogs(Array.from(log));
+        setFullTime(vd);
+        setRecord(records);
+        console.log(PS);
+        counter.reachDays = reachDays;
+        setCounters(counter);
+        setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
+        return vd;
+        log.add(`逆塵珠總使用次數: ${nichenzhuUseCount}`);
+        log.add(`逆塵珠總收益: ${formatNumber(nichenzhuTotalGain)} 修為`);
     };
 
     const isMobile = window.mobileCheck();
@@ -630,6 +670,14 @@ export default function ExpCounter() {
     const [breatheBuf, setBreatheBuf] = useState(100);
     const [medAmount, setMedAmount] = useState([0, 0, 0, 0, 0, 0]);
     const [medExp, setMedExp] = useState([0, 0, 0, 0, 0, 0]);
+    const [tableType, setTableType] = useState(3);
+    const [tableStopType, setTableStopType] = useState(1);
+    const [tableTime, setTableTime] = useState(0);
+    const [tableCount, setTableCount] = useState(0);
+    const [tableExtra, setTableExtra] = useState(0);
+    const [tableControl, setTableControl] = useState([false, false, true]);
+    const [tableChance, setTableChance] = useState(1);
+    const [tableTierToStop, setTableTierToStop] = useState({ tier: 4, level: 0, process: 0, exp: 0 });
     const [stoneLevel, setStoneLevel] = useState(6);
     const [stoneQuality, setStoneQuality] = useState(3);
     const [stoneForgeEnabled, setStoneForgeEnabled] = useState(false);
@@ -693,6 +741,7 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
+    // ---- 核心計算 ----
     const air = tier === 1 ? voidAir : othersAir;
     const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
@@ -724,52 +773,66 @@ export default function ExpCounter() {
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
 
+    // ---- 吐納（新邏輯） ----
     const breatheBase = customBreatheBase ? customBreatheValue : breatheList[tier][0];
     const breatheSpeed = cal[2] ? (customBreatheBase ? customBreatheValue : breatheBase * breatheBuf / 100 * breatheTime * 1.9) : 0;
 
+    // ---- 丹藥 ----
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
 
+    // ---- 化靈臺 ----
+    const tableBase = cal[4] * redFruitList[tier] * 1.8 * (1.5 * tableControl[2]) * (9 + (tableControl[0] * 6) + (tableControl[1] * 6));
+    const tableSpeed = tableType === 0 ? tableBase * (tableChances[tableChance] / 100) * 2.7 + tableBase * (1 - tableChances[tableChance] / 100) : 0;
+
+    // ---- 至寶 ----
     let conversionFactor = 1;
     if (starSeaConversion === 1) conversionFactor = 0.8;
     else if (starSeaConversion === 2) conversionFactor = 0.95;
     const starSeaCost = 100
         * (gods[0][0] === 5 ? 0.85 : 1)
         * conversionFactor;
-    const starSeaRecovery = (gods[0][0] >= 0) ? (96 * godRegent[gods[0][0]] + 100) : 0;
+    const starSeaRecovery = 96 * godRegent[gods[0][0]] + 100;
     const starSeaTimes = cal[6] ? starSeaRecovery / starSeaCost : 0;
     const godSpeed0 = starSeaTimes * gods[0][1] * 10000;
 
     const useEnergy = (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100);
-    const mirrorRecovery = (gods[1][0] >= 0) ? (96 * godRegent[gods[1][0]] + 200) : 0;
+    const mirrorRecovery = 96 * godRegent[gods[1][0]] + 200;
     const mirrorTimes = cal[6] ? mirrorRecovery / useEnergy : 0;
     const mirrorEffectiveTimes = mirrorTimes * (1 + (mirrorDouble && gods[1][0] === 5 ? 0.15 : 0));
     const godSpeed1 = mirrorEffectiveTimes * gods[1][1] * 10000;
     const godSpeed = [godSpeed0, godSpeed1];
 
+    // ---- 納靈石（新公式，無額外收益） ----
     const baseAbsorptionDisplay = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
     const qualityBonusDisplay = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
     const forge1BonusDisplay = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
     const forge2MultiplierDisplay = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
     const stoneMultiplierDisplay = (baseAbsorptionDisplay + forge1BonusDisplay) * forge2MultiplierDisplay * (1 + qualityBonusDisplay);
+    // 修煉周天 = air * (finalEfficiency / 100)  即每秒獲得修為（周天）
     const zhouTian = air * (finalEfficiency / 100);
     const stoneSpeedPerDay = zhouTian * stoneMultiplierDisplay * 10800 * cal[5];
 
+    // ---- 合道爐 ----
     const furnaceQualityBonus = furnaceQualityList[furnaceQuality] || 0;
     const furnaceForge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
     const furnaceForge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
     const furnaceTotalBonus = (furnaceQualityBonus + furnaceForge1) * furnaceForge2;
     const purpleFurnaceSpeedDisplay = furnaceEnabled ? Math.round(speed * furnaceTotalBonus * 100) / 100 : 0;
 
+    // ---- 逆塵珠基礎 ----
     const nichenBaseSpeed = air * ((effectiveSpeed + totalPerfectionBonus) / 100);
     const nichenGainPerUse = nichenBaseSpeed * (1 + furnaceTotalBonus) * (nichenzhuStars >= 1 ? 120 : 100);
 
+    // ---- 每日總收益 ----
     const baseSpeedPerDay = baseSpeed * 10800;
     const extraSpeedPerDay = extraSpeed * 10800;
     const breatheSpeedPerDay = breatheSpeed;
     const medSpeedPerDay = medSpeed;
+    const tableSpeedPerDay = tableSpeed / 7;
     const godSpeedPerDay = godSpeed.reduce((a, b) => a + b);
-    const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + godSpeedPerDay;
+    const totalSpeedPerDay = baseSpeedPerDay + extraSpeedPerDay + breatheSpeedPerDay + medSpeedPerDay + stoneSpeedPerDay + tableSpeedPerDay + godSpeedPerDay;
 
+    // ---- 逆塵珠 useEffect ----
     useEffect(() => {
         if (nichenzhuEnabled) {
             const config = nichenzhuConfig[nichenzhuStars];
@@ -943,6 +1006,7 @@ export default function ExpCounter() {
         );
     };
 
+    // ---- Render ----
     return (
         <Stack spacing={2} sx={{ my: 2 }}>
             <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1012,6 +1076,7 @@ export default function ExpCounter() {
             </Stack>
 
             <Box sx={{ "*": { "*.MuiAccordionSummary-content": { justifyContent: "space-between" } } }}>
+                {/* 修煉速度 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "white" } }}>
                         修煉速度
@@ -1067,6 +1132,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 額外吸收率 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
                         額外吸收率
@@ -1331,6 +1397,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 吐納 - 已修改二選一 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
                         吐吶
@@ -1415,6 +1482,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 丹藥 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "magenta" } }}>
                         丹藥
@@ -1459,6 +1527,125 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
+                {/* 化靈臺 */}
+                <Accordion sx={{ width: "100%" }}>
+                    <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightblue" } }}>
+                        化靈臺
+                        <span>+{Math.round(tableSpeedPerDay * 100) / 100}</span>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Stack spacing={2} direction={isMobile ? "column" : "row"} alignItems={"center"} justifyContent={"center"}>
+                            <ToggleButtonGroup
+                                exclusive
+                                onChange={(e, v) => v !== null ? setTableType(v) : null}
+                                value={tableType}
+                                orientation={"vertical"}
+                                fullWidth={isMobile}
+                                size={isMobile ? "small" : "medium"}
+                            >
+                                <ToggleButton value={0}>立即吃</ToggleButton>
+                                <ToggleButton value={1}>達成條件後吃</ToggleButton>
+                                <ToggleButton value={2}>最小進食量</ToggleButton>
+                                <ToggleButton value={3}>不吃</ToggleButton>
+                            </ToggleButtonGroup>
+                            <FormGroup>
+                                {["購買萬妖果禮包x2", "購買萬妖令禮包", "目前最高等級(+50%)"].map((t, i) => (
+                                    <FormControlLabel
+                                        checked={tableControl[i]}
+                                        onChange={(e, v) => {
+                                            let newControl = Array.from(tableControl);
+                                            newControl[i] = v;
+                                            setTableControl(newControl);
+                                        }}
+                                        control={<Checkbox />}
+                                        label={t}
+                                        key={t}
+                                    />
+                                ))}
+                            </FormGroup>
+                            <Slider
+                                sx={isMobile ? {} : { height: "100px" }}
+                                orientation={isMobile ? "horizontal" : "vertical"}
+                                defaultValue={1}
+                                value={tableChance}
+                                onChange={(e, v) => setTableChance(v)}
+                                valueLabelDisplay={isMobile ? "on" : "auto"}
+                                valueLabelFormat={(v) => ["非酋(全保底)", "正常(期望機率)", "歐皇(全靈湧)"][v]}
+                                step={null}
+                                min={0}
+                                max={2}
+                                marks={[{ value: 0 }, { value: 1 }, { value: 2 }]}
+                            />
+                            <Stack spacing={2}>
+                                <TextField
+                                    label={"當前果子數量"}
+                                    type={"number"}
+                                    value={tableCount}
+                                    onChange={(e) => setTableCount(parseFloat(e.target.value))}
+                                />
+                                <TextField
+                                    label={"每週額外果子數量"}
+                                    type={"number"}
+                                    value={tableExtra}
+                                    onChange={(e) => setTableExtra(parseFloat(e.target.value))}
+                                />
+                            </Stack>
+                        </Stack>
+                        <Collapse in={tableType === 1}>
+                            <Stack direction={isMobile ? "column" : "row"} p={3} justifyContent={"space-around"} alignItems={"center"} spacing={2}>
+                                <ToggleButtonGroup
+                                    exclusive
+                                    onChange={(e, v) => v !== null ? setTableStopType(v) : null}
+                                    value={tableStopType}
+                                    orientation={isMobile ? "horizontal" : "vertical"}
+                                >
+                                    <ToggleButton value={0}>修為</ToggleButton>
+                                    <ToggleButton value={1}>時間</ToggleButton>
+                                </ToggleButtonGroup>
+                                {tableStopType ?
+                                    <FormControl>
+                                        <Input
+                                            value={tableTime}
+                                            onChange={(e) => setTableTime(parseFloat(e.target.value))}
+                                            type="number"
+                                            endAdornment={"天"}
+                                        />
+                                    </FormControl> :
+                                    <ExpSelector
+                                        full={false}
+                                        setData={setTableTierToStop}
+                                        lock={true}
+                                        tier={tier}
+                                        level={level}
+                                        process={process}
+                                    />
+                                }
+                                後吃果子
+                            </Stack>
+                        </Collapse>
+                        <Stack p={!isMobile * 3} pt={3} sx={{ "div": { display: "flex", justifyContent: "space-between" } }}>
+                            <Divider />
+                            {[
+                                { label: "萬妖果(紅)基礎修為:", value: redFruitList[tier] },
+                                { label: "靈氣球修為加成:", value: `*1.8 ${tableControl[2] ? "*1.5" : ""}` },
+                                { label: "數量(每周):", value: `9 ${tableControl[0] ? "+6" : ""} ${tableControl[1] ? "+6" : ""}` },
+                                { label: "靈湧機率:", value: `${tableChances[tableChance]}%` },
+                                { label: "期望修為:", value: [0, 3].includes(tableType) ? `${formatNumber(tableSpeed)} / 周` : "請使用計算功能" }
+                            ].map(({ label, value }) => (
+                                <>
+                                    <Box key={label}>
+                                        <Typography fontSize={isMobile ? "medium" : "x-large"} color={"textSecondary"}>{label}</Typography>
+                                        <Typography fontSize={isMobile ? "large" : "x-large"} color={"textSecondary"}>{value}</Typography>
+                                    </Box>
+                                    <Divider key={label + "-divider"} />
+                                </>
+                            ))}
+                        </Stack>
+                    </AccordionDetails>
+                    <AccordionActions>*預設所有等級已升滿 *一次過吃的時候會消耗所有萬妖果（會益出修為），不會因為達成完滿而剩下果實</AccordionActions>
+                </Accordion>
+
+                {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
                         納靈石
@@ -1540,6 +1727,7 @@ export default function ExpCounter() {
                                         />
                                     }
                                 </Stack>
+                                {/* 額外收益已刪除 */}
                             </Stack>
                         )}
                         <Stack mt={2} p={2} sx={{ backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 1 }}>
@@ -1569,6 +1757,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 至寶 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "red" } }}>
                         至寶
@@ -1680,6 +1869,7 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
+                {/* 輔修相關 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "grey" } }}>
                         輔修相關
@@ -1820,6 +2010,7 @@ export default function ExpCounter() {
                     <div style={{ color: "lightgreen" }}>+{formatNumber(extraSpeedPerDay)}</div>
                     <div style={{ color: "orange" }}>+{formatNumber(breatheSpeedPerDay)}</div>
                     <div style={{ color: "magenta" }}>+{formatNumber(medSpeedPerDay)}</div>
+                    <div style={{ color: "lightblue" }}>+{formatNumber(tableSpeedPerDay)}</div>
                     <div style={{ color: "gold" }}>+{formatNumber(stoneSpeedPerDay)}</div>
                     <div style={{ color: "red" }}>≈+{formatNumber(godSpeedPerDay)}</div>
                 </Stack>
