@@ -11,5 +11,5 @@ export default defineConfig({
     outDir: 'docs',
     sourcemap: false,
   },
-  base: "/calculator/",
+  base: './',  
 })
