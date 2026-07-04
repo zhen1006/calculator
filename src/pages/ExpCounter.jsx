@@ -389,6 +389,7 @@ export default function ExpCounter() {
                 if (furnaceEnabled) {
                     PS[1].exp += purpleFurnaceSpeed;
                 }
+                // 每日結算
                 if (vd % 10800 === 0) {
                     if (gods1[0][0] >= 0) godEnergy[0] += 100;
                     if (gods1[1][0] >= 0) godEnergy[1] += 200;
@@ -474,6 +475,34 @@ export default function ExpCounter() {
                         else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                         break;
                     }
+
+                    // 將每日收益加到當前修煉對象
+                    PS[now].exp += gains;
+
+                    // --- 升級檢查（立即處理） ---
+                    if (PS[now].level < 3) {
+                        const currentLevelExps = exps[PS[now].tier][PS[now].level];
+                        while (PS[now].exp >= currentLevelExps[PS[now].process]) {
+                            PS[now].exp -= currentLevelExps[PS[now].process];
+                            PS[now].process += 1;
+                            log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
+                            reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
+                            if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
+                                PS[now].process = 0;
+                                PS[now].level += 1;
+                                log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+                                // 若突破到圓滿，跳出 while 避免無窮迴圈（因為 exps[level=3] 不存在）
+                                if (PS[now].level >= 3) break;
+                                // 更新 currentLevelExps 以繼續檢查
+                                const newLevelExps = exps[PS[now].tier][PS[now].level];
+                                if (!newLevelExps) break;
+                            }
+                            // 避免無限迴圈，若 process 已超出則退出
+                            if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) break;
+                        }
+                    }
+                    // --- 升級檢查結束 ---
+
                     records.push(sum);
                     sum = {
                         base: 0,
@@ -483,26 +512,15 @@ export default function ExpCounter() {
                         stone: 0,
                         god: 0
                     };
+                    gains = 0;
                 }
+
+                // 累積每日經驗（非每日結算時）
                 gains += speed1 + extra;
                 sum.base += speed1;
                 sum.extra += extra;
 
-                if (PS[now].level < 3) {
-                    const currentLevelExps = exps[PS[now].tier][PS[now].level];
-                    if (PS[now].exp >= currentLevelExps[PS[now].process]) {
-                        PS[now].exp -= currentLevelExps[PS[now].process];
-                        PS[now].process += 1;
-                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
-                        reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
-                    }
-                    if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                        PS[now].process = 0;
-                        PS[now].level += 1;
-                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
-                    }
-                }
-
+                // 停止條件檢查（放在每日結算之後，確保升級已處理）
                 if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
                     const actualDays = Math.floor(vd / 10800);
                     log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
@@ -563,8 +581,6 @@ export default function ExpCounter() {
                         }
                     }
                 }
-
-                gains = 0;
             }
 
             const calculateLevelPercentage = (tier, level, process, exp) => {
