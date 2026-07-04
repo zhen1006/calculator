@@ -279,327 +279,337 @@ export default function ExpCounter() {
     };
 
     const calc = (mainP, subP = {}, thirdP = {}) => {
-        let log = new Set();
-        let vd = 0;
-        let records = [];
-        let sum = {
-            base: 0,
-            extra: 0,
-            breathe: 0,
-            med: 0,
-            stone: 0,
-            god: 0,
-        };
-        let godEnergy = [0, 0];
-        let chargeTime = 0;
-        let counter = {
-            breathe: 0,
-            med: [0, 0, 0, 0, 0, 0],
-            chance: 0,
-            doubles: 0,
-            eat: 0,
-        }
-        let reachDays = {};
-        let gods1 = JSON.parse(JSON.stringify(gods));
-        let gains = 0;
-        if (!cal[6]) {
-            gods1[0][0] = -1;
-            gods1[1][0] = -1;
-        }
-        let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
-        let now = dir;
-        let purpleFurnaceSpeed = 0;
-        if (furnaceEnabled) {
-            const quality = furnaceQualityList[furnaceQuality] || 0;
-            const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
-            const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
-            const totalBonus = (quality + forge1) * forge2;
-            purpleFurnaceSpeed = speed * totalBonus;
-        }
-        let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
-        let nichenzhuTotalGain = 0;
-        let nichenzhuUseCount = 0;
-        let dailyNichenzhuUses = {};
-
-        let conversionFactor = 1;
-        if (starSeaConversion === 1) conversionFactor = 0.8;
-        else if (starSeaConversion === 2) conversionFactor = 0.95;
-        const starSeaCost = 100
-            * (gods1[0][0] === 5 ? 0.85 : 1)
-            * conversionFactor;
-
-        const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
-        const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
-        const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
-
-        const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
-        const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
-        const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
-        const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
-        const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
-
-        while (true) {
-            vd += 1;
-            chargeTime += 8;
-            if (chargeTime >= 900) {
-                chargeTime -= 900;
-                if (gods1[0][0] >= 0) godEnergy[0] += godRegent[gods1[0][0]] || 0;
-                if (gods1[1][0] >= 0) godEnergy[1] += godRegent[gods1[1][0]] || 0;
-                if (nichenzhuEnabled) {
-                    nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
-                }
+        try {
+            let maxIter = 5000000;
+            let log = new Set();
+            let vd = 0;
+            let records = [];
+            let sum = {
+                base: 0,
+                extra: 0,
+                breathe: 0,
+                med: 0,
+                stone: 0,
+                god: 0,
+            };
+            let godEnergy = [0, 0];
+            let chargeTime = 0;
+            let counter = {
+                breathe: 0,
+                med: [0, 0, 0, 0, 0, 0],
+                chance: 0,
+                doubles: 0,
+                eat: 0,
             }
-            let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
-            const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
-            let fenqiMult = 1;
-            if (fenqiEnabled && fenqiBonus > 0) {
-                fenqiMult = 1 + (fenqiBonus / 100);
+            let reachDays = {};
+            let gods1 = JSON.parse(JSON.stringify(gods));
+            let gains = 0;
+            if (!cal[6]) {
+                gods1[0][0] = -1;
+                gods1[1][0] = -1;
             }
-            let wanjieMult = 1;
-            if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
-                wanjieMult = 1 + (wanjieTianyuanBonus / 100);
-            }
-            let yaojieMult = 1;
-            if (yaojieEnabled && yaojieBonus > 0) {
-                yaojieMult = 1 + (yaojieBonus / 100);
-            }
-            const totalMult = fenqiMult * wanjieMult * yaojieMult;
-            const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
-            const currentBuffBonusInner = calculateCurrentBuffBonus(
-                currentBuff,
-                PS[0]?.tier,
-                PS[0]?.level,
-                PS[0]?.process,
-                PS[0]?.exp,
-                PS[1]?.tier,
-                PS[1]?.level,
-                PS[1]?.process,
-                PS[1]?.exp
-            );
-            const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
-            const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
-            const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
-
+            let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
+            let now = dir;
+            let purpleFurnaceSpeed = 0;
             if (furnaceEnabled) {
-                PS[1].exp += purpleFurnaceSpeed;
+                const quality = furnaceQualityList[furnaceQuality] || 0;
+                const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+                const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+                const totalBonus = (quality + forge1) * forge2;
+                purpleFurnaceSpeed = speed * totalBonus;
             }
-            if (vd % 10800 === 0) {
-                if (gods1[0][0] >= 0) godEnergy[0] += 100;
-                if (gods1[1][0] >= 0) godEnergy[1] += 200;
-                counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
+            let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
+            let nichenzhuTotalGain = 0;
+            let nichenzhuUseCount = 0;
+            let dailyNichenzhuUses = {};
 
-                while (godEnergy[0] >= starSeaCost) {
-                    godEnergy[0] -= starSeaCost;
-                    sum.god += gods1[0][1] * 10000;
-                    gains += gods1[0][1] * 10000;
+            let conversionFactor = 1;
+            if (starSeaConversion === 1) conversionFactor = 0.8;
+            else if (starSeaConversion === 2) conversionFactor = 0.95;
+            const starSeaCost = 100
+                * (gods1[0][0] === 5 ? 0.85 : 1)
+                * conversionFactor;
+
+            const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
+            const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
+            const nichenzhuZhouTian = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].zhouTian : 100;
+
+            const baseAbsorption = STONE_SYSTEM.types[stoneLevel]?.absorption || 0;
+            const qualityBonus = stoneSealEnabled ? (stoneQualityList[stoneQuality] || 0) : 0;
+            const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
+            const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
+            const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
+
+            while (true) {
+                if (--maxIter < 0) {
+                    toast.error("計算超出最大迭代次數（500萬步），可能陷入無限迴圈，請檢查設定。");
+                    break;
                 }
-
-                let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
-                while (godEnergy[1] >= useEnergy) {
-                    if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
-                        godEnergy[1] -= useEnergy;
+                vd += 1;
+                chargeTime += 8;
+                if (chargeTime >= 900) {
+                    chargeTime -= 900;
+                    if (gods1[0][0] >= 0) godEnergy[0] += godRegent[gods1[0][0]] || 0;
+                    if (gods1[1][0] >= 0) godEnergy[1] += godRegent[gods1[1][0]] || 0;
+                    if (nichenzhuEnabled) {
+                        nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
                     }
-                    sum.god += gods1[1][1] * 10000;
-                    gains += gods1[1][1] * 10000;
-                    counter.doubles += 1;
+                }
+                let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
+                const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+                let fenqiMult = 1;
+                if (fenqiEnabled && fenqiBonus > 0) {
+                    fenqiMult = 1 + (fenqiBonus / 100);
+                }
+                let wanjieMult = 1;
+                if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
+                    wanjieMult = 1 + (wanjieTianyuanBonus / 100);
+                }
+                let yaojieMult = 1;
+                if (yaojieEnabled && yaojieBonus > 0) {
+                    yaojieMult = 1 + (yaojieBonus / 100);
+                }
+                const totalMult = fenqiMult * wanjieMult * yaojieMult;
+                const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                const currentBuffBonusInner = calculateCurrentBuffBonus(
+                    currentBuff,
+                    PS[0]?.tier,
+                    PS[0]?.level,
+                    PS[0]?.process,
+                    PS[0]?.exp,
+                    PS[1]?.tier,
+                    PS[1]?.level,
+                    PS[1]?.process,
+                    PS[1]?.exp
+                );
+                const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
+                const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
+                const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
+
+                if (furnaceEnabled) {
+                    PS[1].exp += purpleFurnaceSpeed;
+                }
+                if (vd % 10800 === 0) {
+                    if (gods1[0][0] >= 0) godEnergy[0] += 100;
+                    if (gods1[1][0] >= 0) godEnergy[1] += 200;
+                    counter.chance += !(gods1[0][0] < 0) * 30 + !(gods1[1][0] < 0) * 30;
+
+                    while (godEnergy[0] >= starSeaCost) {
+                        godEnergy[0] -= starSeaCost;
+                        sum.god += gods1[0][1] * 10000;
+                        gains += gods1[0][1] * 10000;
+                    }
+
+                    let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
+                    while (godEnergy[1] >= useEnergy) {
+                        if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
+                            godEnergy[1] -= useEnergy;
+                        }
+                        sum.god += gods1[1][1] * 10000;
+                        gains += gods1[1][1] * 10000;
+                        counter.doubles += 1;
+                    }
+
+                    const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
+                    gains += stoneDaily;
+                    sum.stone += stoneDaily;
+
+                    if (nichenzhuEnabled) {
+                        const maxDailyUses = 20;
+                        const currentDay = Math.floor(vd / 10800);
+                        dailyNichenzhuUses[currentDay] = 0;
+                        if (nichenzhuEnergy >= nichenzhuEnergyCost) {
+                            const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
+                            const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
+                            const actualUses = Math.min(availableUses, remainingDailyUses);
+                            if (actualUses > 0) {
+                                const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
+                                const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+                                const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                                const currentBuffBonusInnerN = calculateCurrentBuffBonus(
+                                    currentBuff,
+                                    PS[0]?.tier,
+                                    PS[0]?.level,
+                                    PS[0]?.process,
+                                    PS[0]?.exp,
+                                    PS[1]?.tier,
+                                    PS[1]?.level,
+                                    PS[1]?.process,
+                                    PS[1]?.exp
+                                );
+                                const totalPerfectionBonusInnerN = prevBuffBonusInnerN + currentBuffBonusInnerN;
+                                const baseSpeedForNichen = calcAirForNichen * ((effSpeedForNichen + totalPerfectionBonusInnerN) / 100);
+                                const furnaceBonus = furnaceEnabled ? (() => {
+                                    const quality = furnaceQualityList[furnaceQuality] || 0;
+                                    const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
+                                    const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
+                                    return (quality + forge1) * forge2;
+                                })() : 0;
+                                const nichenzhuGainPerUse = baseSpeedForNichen * (1 + furnaceBonus) * nichenzhuZhouTian;
+                                const totalGain = actualUses * nichenzhuGainPerUse;
+                                nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
+                                nichenzhuUseCount += actualUses;
+                                PS[1].exp += totalGain;
+                                nichenzhuTotalGain += totalGain;
+                                dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
+                                log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${nichenzhuZhouTian}周天/次）`);
+                            }
+                        }
+                    }
+
+                    const breatheSpeedNow = breatheSpeed;
+                    gains += breatheSpeedNow;
+                    sum.breathe += breatheSpeedNow;
+                    counter.breathe += breatheTime;
+
+                    [...Array(5).keys()].forEach((i) => {
+                        let med = cal[3] * medExp[i] * medAmount[i] * 10000;
+                        gains += med;
+                        sum.med += med;
+                        counter.med[i] += cal[3] * medAmount[i];
+                    })
+
+                    if (gains <= 0) {
+                        alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
+                        break;
+                    }
+                    records.push(sum);
+                    sum = {
+                        base: 0,
+                        extra: 0,
+                        breathe: 0,
+                        med: 0,
+                        stone: 0,
+                        god: 0
+                    };
+                }
+                gains += speed1 + extra;
+                sum.base += speed1;
+                sum.extra += extra;
+
+                if (PS[now].level < 3) {
+                    const currentLevelExps = exps[PS[now].tier][PS[now].level];
+                    if (PS[now].exp >= currentLevelExps[PS[now].process]) {
+                        PS[now].exp -= currentLevelExps[PS[now].process];
+                        PS[now].process += 1;
+                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
+                        reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
+                    }
+                    if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
+                        PS[now].process = 0;
+                        PS[now].level += 1;
+                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+                    }
                 }
 
-                const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
-                gains += stoneDaily;
-                sum.stone += stoneDaily;
-
-                if (nichenzhuEnabled) {
-                    const maxDailyUses = 20;
-                    const currentDay = Math.floor(vd / 10800);
-                    dailyNichenzhuUses[currentDay] = 0;
-                    if (nichenzhuEnergy >= nichenzhuEnergyCost) {
-                        const availableUses = Math.floor(nichenzhuEnergy / nichenzhuEnergyCost);
-                        const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
-                        const actualUses = Math.min(availableUses, remainingDailyUses);
-                        if (actualUses > 0) {
-                            const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
-                            const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
-                            const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
-                            const currentBuffBonusInnerN = calculateCurrentBuffBonus(
-                                currentBuff,
-                                PS[0]?.tier,
-                                PS[0]?.level,
-                                PS[0]?.process,
-                                PS[0]?.exp,
-                                PS[1]?.tier,
-                                PS[1]?.level,
-                                PS[1]?.process,
-                                PS[1]?.exp
-                            );
-                            const totalPerfectionBonusInnerN = prevBuffBonusInnerN + currentBuffBonusInnerN;
-                            const baseSpeedForNichen = calcAirForNichen * ((effSpeedForNichen + totalPerfectionBonusInnerN) / 100);
-                            const furnaceBonus = furnaceEnabled ? (() => {
-                                const quality = furnaceQualityList[furnaceQuality] || 0;
-                                const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
-                                const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
-                                return (quality + forge1) * forge2;
-                            })() : 0;
-                            const nichenzhuGainPerUse = baseSpeedForNichen * (1 + furnaceBonus) * nichenzhuZhouTian;
-                            const totalGain = actualUses * nichenzhuGainPerUse;
-                            nichenzhuEnergy -= actualUses * nichenzhuEnergyCost;
-                            nichenzhuUseCount += actualUses;
-                            PS[1].exp += totalGain;
-                            nichenzhuTotalGain += totalGain;
-                            dailyNichenzhuUses[currentDay] = (dailyNichenzhuUses[currentDay] || 0) + actualUses;
-                            log.add(`${timeString(vd * 8)}: 逆塵珠使用 ${actualUses} 次，獲得 ${formatNumber(totalGain)} 修為（${nichenzhuZhouTian}周天/次）`);
+                if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
+                    const actualDays = Math.floor(vd / 10800);
+                    log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
+                    break;
+                }
+                if (stopType === 0) {
+                    if (!dir) {
+                        if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
+                            PS[now].tier += 1;
+                            PS[now].level = 0;
+                        }
+                        if (PS[now].level >= 3) {
+                            log.add("抵達圓滿");
+                            if (stopLevel === 0) break;
+                        }
+                        if (now === 1 && (
+                            PS[now].tier > PS[0].tier - 1 ||
+                            (
+                                PS[now].tier === PS[0].tier - 1 &&
+                                PS[now].level >= 1
+                            )
+                        )) {
+                            log.add("抵達大成, 吸收率+20%");
+                            if (stopLevel === 1) break;
+                        }
+                        if (now === 1 && (
+                            PS[now].tier >= PS[0].tier
+                        )) {
+                            log.add("抵達完美");
+                            if (stopLevel === 2) break;
+                        }
+                        if (now === 1 && (
+                            PS[now].tier >= PS[0].tier &&
+                            PS[now].level >= 3
+                        )) {
+                            log.add("抵達半步, 吸收率+40%");
+                            if (stopLevel === 3) break;
+                        }
+                        if (now === 2 && (
+                            PS[now].tier >= PS[0].tier &&
+                            PS[now].level >= 3
+                        )) {
+                            log.add("抵達準");
+                            break;
+                        }
+                        if (PS[now].level >= 3 && now === 0) {
+                            log.add("開始修練輔修");
+                            now = 1;
+                        }
+                        if (PS[now].level >= 3 && now === 1) {
+                            log.add("開始修練三修");
+                            now = 2;
+                        }
+                    } else {
+                        if (PS[now].level >= 3) {
+                            console.log("抵達圓滿");
+                            break;
                         }
                     }
                 }
 
-                const breatheSpeedNow = breatheSpeed;
-                gains += breatheSpeedNow;
-                sum.breathe += breatheSpeedNow;
-                counter.breathe += breatheTime;
-
-                [...Array(5).keys()].forEach((i) => {
-                    let med = cal[3] * medExp[i] * medAmount[i] * 10000;
-                    gains += med;
-                    sum.med += med;
-                    counter.med[i] += cal[3] * medAmount[i];
-                })
-
-                if (gains <= 0) {
-                    alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
-                    break;
-                }
-                records.push(sum);
-                sum = {
-                    base: 0,
-                    extra: 0,
-                    breathe: 0,
-                    med: 0,
-                    stone: 0,
-                    god: 0
-                };
-            }
-            gains += speed1 + extra;
-            sum.base += speed1;
-            sum.extra += extra;
-
-            if (PS[now].level < 3) {
-                const currentLevelExps = exps[PS[now].tier][PS[now].level];
-                if (PS[now].exp >= currentLevelExps[PS[now].process]) {
-                    PS[now].exp -= currentLevelExps[PS[now].process];
-                    PS[now].process += 1;
-                    log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
-                    reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
-                }
-                if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                    PS[now].process = 0;
-                    PS[now].level += 1;
-                    log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
-                }
+                gains = 0;
             }
 
-            if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
-                const actualDays = Math.floor(vd / 10800);
-                log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
-                break;
-            }
-            if (stopType === 0) {
-                if (!dir) {
-                    if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
-                        PS[now].tier += 1;
-                        PS[now].level = 0;
-                    }
-                    if (PS[now].level >= 3) {
-                        log.add("抵達圓滿");
-                        if (stopLevel === 0) break;
-                    }
-                    if (now === 1 && (
-                        PS[now].tier > PS[0].tier - 1 ||
-                        (
-                            PS[now].tier === PS[0].tier - 1 &&
-                            PS[now].level >= 1
-                        )
-                    )) {
-                        log.add("抵達大成, 吸收率+20%");
-                        if (stopLevel === 1) break;
-                    }
-                    if (now === 1 && (
-                        PS[now].tier >= PS[0].tier
-                    )) {
-                        log.add("抵達完美");
-                        if (stopLevel === 2) break;
-                    }
-                    if (now === 1 && (
-                        PS[now].tier >= PS[0].tier &&
-                        PS[now].level >= 3
-                    )) {
-                        log.add("抵達半步, 吸收率+40%");
-                        if (stopLevel === 3) break;
-                    }
-                    if (now === 2 && (
-                        PS[now].tier >= PS[0].tier &&
-                        PS[now].level >= 3
-                    )) {
-                        log.add("抵達準");
-                        break;
-                    }
-                    if (PS[now].level >= 3 && now === 0) {
-                        log.add("開始修練輔修");
-                        now = 1;
-                    }
-                    if (PS[now].level >= 3 && now === 1) {
-                        log.add("開始修練三修");
-                        now = 2;
-                    }
-                } else {
-                    if (PS[now].level >= 3) {
-                        console.log("抵達圓滿");
-                        break;
-                    }
-                }
-            }
+            const calculateLevelPercentage = (tier, level, process, exp) => {
+                if (level === 3) return 100;
+                const levelExpData = exps[tier]?.[level];
+                if (!levelExpData || levelExpData.length === 0) return 0;
+                const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
+                const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
+                return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
+            };
 
-            gains = 0;
+            const finalResults = {
+                main: {
+                    tier: PS[0].tier,
+                    level: PS[0].level,
+                    process: PS[0].process,
+                    exp: PS[0].exp,
+                    percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
+                },
+                sub: {
+                    tier: PS[1].tier,
+                    level: PS[1].level,
+                    process: PS[1].process,
+                    exp: PS[1].exp,
+                    percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
+                },
+                third: {
+                    tier: PS[2].tier,
+                    level: PS[2].level,
+                    process: PS[2].process,
+                    exp: PS[2].exp,
+                    percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
+                }
+            };
+            setFinalResults(finalResults);
+            setLogs(Array.from(log));
+            setFullTime(vd);
+            setRecord(records);
+            counter.reachDays = reachDays;
+            setCounters(counter);
+            setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
+            return vd;
+        } catch (error) {
+            console.error(error);
+            toast.error("計算過程發生錯誤：" + error.message);
         }
-
-        const calculateLevelPercentage = (tier, level, process, exp) => {
-            if (level === 3) return 100;
-            const levelExpData = exps[tier]?.[level];
-            if (!levelExpData || levelExpData.length === 0) return 0;
-            const totalExpForLevel = levelExpData.reduce((a, b) => a + b, 0);
-            const accumulatedExp = levelExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
-            return Math.min(100, (accumulatedExp / totalExpForLevel) * 100);
-        };
-
-        const finalResults = {
-            main: {
-                tier: PS[0].tier,
-                level: PS[0].level,
-                process: PS[0].process,
-                exp: PS[0].exp,
-                percentage: calculateLevelPercentage(PS[0].tier, PS[0].level, PS[0].process, PS[0].exp)
-            },
-            sub: {
-                tier: PS[1].tier,
-                level: PS[1].level,
-                process: PS[1].process,
-                exp: PS[1].exp,
-                percentage: calculateLevelPercentage(PS[1].tier, PS[1].level, PS[1].process, PS[1].exp)
-            },
-            third: {
-                tier: PS[2].tier,
-                level: PS[2].level,
-                process: PS[2].process,
-                exp: PS[2].exp,
-                percentage: calculateLevelPercentage(PS[2].tier, PS[2].level, PS[2].process, PS[2].exp)
-            }
-        };
-        setFinalResults(finalResults);
-        setLogs(Array.from(log));
-        setFullTime(vd);
-        setRecord(records);
-        counter.reachDays = reachDays;
-        setCounters(counter);
-        setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
-        return vd;
     };
 
     const isMobile = window.mobileCheck();
