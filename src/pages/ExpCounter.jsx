@@ -125,62 +125,126 @@ export default function ExpCounter() {
     };
 
     const load = (i) => {
-        let data = localStorage.getItem(`data ${i}`);
-        if (data !== null) {
-            data = JSON.parse(data);
-            const setters = {
-                cal: setCal,
-                tier: setTier,
-                level: setLevel,
-                process: setProcess,
-                exp: setExp,
-                othersAir: setOthersAir,
-                voidAir: setVoidAir,
-                prevBuff: setPrevBuff,
-                currentBuff: setCurrentBuff,
-                breatheTime: setBreatheTime,
-                breatheBuf: setBreatheBuf,
-                medAmount: setMedAmount,
-                medExp: setMedExp,
-                stoneLevel: setStoneLevel,
-                stoneQuality: setStoneQuality,
-                stoneForgeEnabled: setStoneForgeEnabled,
-                stoneForgeAbsorption: setStoneForgeAbsorption,
-                stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
-                stoneForgeMultiplier: setStoneForgeMultiplier,
-                stoneSealEnabled: setStoneSealEnabled,
-                furnaceEnabled: setFurnaceEnabled,
-                furnaceQuality: setFurnaceQuality,
-                furnaceForge1Enabled: setFurnaceForge1Enabled,
-                furnaceForge1Percent: setFurnaceForge1Percent,
-                furnaceForge2Enabled: setFurnaceForge2Enabled,
-                furnaceForge2Multiplier: setFurnaceForge2Multiplier,
-                gods: setGods,
-                mirrorDouble: setMirrorDouble,
-                starSeaConversion: setStarSeaConversion,
-                dir: setDir,
-                subProcess: setSubProcess,
-                thirdProcess: setThirdProcess,
-                fenqiEnabled: setFenqiEnabled,
-                fenqiBonus: setFenqiBonus,
-                yaojieEnabled: setYaojieEnabled,
-                yaojieBonus: setYaojieBonus,
-                wanjieTianyuanEnabled: setWanjieTianyuanEnabled,
-                wanjieTianyuanBonus: setWanjieTianyuanBonus,
-                nichenzhuEnabled: setNichenzhuEnabled,
-                nichenzhuStars: setNichenzhuStars,
-                nichenzhuTransform: setNichenzhuTransform,
-                customBreatheBase: setCustomBreatheBase,
-                customBreatheValue: setCustomBreatheValue,
-            };
-            Object.entries(setters).forEach(([key, setter]) => {
-                if (data[key] !== undefined) {
-                    setter(data[key]);
-                }
-            });
-            toast.success("Loaded!")
+    try {
+        const raw = localStorage.getItem(`data ${i}`);
+        if (!raw) {
+            toast.error('存檔不存在');
+            return;
         }
-    };
+        const data = JSON.parse(raw);
+
+        
+        const defaultState = {
+            cal: [true, true, true, true, true, true, true],
+            tier: 4,
+            level: 0,
+            process: 0,
+            exp: 0,
+            othersAir: 0,
+            voidAir: 0,
+            prevBuff: 0,
+            currentBuff: 0,
+            breatheTime: 0,
+            breatheBuf: 100,
+            medAmount: [0,0,0,0,0,0],
+            medExp: [0,0,0,0,0,0],
+            stoneLevel: 6,
+            stoneQuality: 3,
+            stoneForgeEnabled: false,
+            stoneForgeAbsorption: 4.5,
+            stoneForgeMultiplierEnabled: false,
+            stoneForgeMultiplier: 1.15,
+            stoneSealEnabled: false,
+            furnaceEnabled: false,
+            furnaceQuality: 3,
+            furnaceForge1Enabled: false,
+            furnaceForge1Percent: 6.75,
+            furnaceForge2Enabled: false,
+            furnaceForge2Multiplier: 1.18,
+            gods: [[-1,0], [-1,0,false]],
+            mirrorDouble: true,
+            starSeaConversion: 0,
+            dir: 0,
+            subProcess: { tier: 4, level: 0, process: 0, exp: 0 },
+            thirdProcess: { tier: 4, level: 0, process: 0, exp: 0 },
+            fenqiEnabled: false,
+            fenqiBonus: 0,
+            yaojieEnabled: false,
+            yaojieBonus: 0,
+            wanjieTianyuanEnabled: false,
+            wanjieTianyuanBonus: 0,
+            nichenzhuEnabled: false,
+            nichenzhuStars: 0,
+            nichenzhuTransform: false,
+            customBreatheBase: false,
+            customBreatheValue: 0,
+            customEffective: false,
+        };
+
+        
+        const merged = { ...defaultState, ...data };
+
+
+        const setters = {
+            cal: setCal,
+            tier: setTier,
+            level: setLevel,
+            process: setProcess,
+            exp: setExp,
+            othersAir: setOthersAir,
+            voidAir: setVoidAir,
+            prevBuff: setPrevBuff,
+            currentBuff: setCurrentBuff,
+            breatheTime: setBreatheTime,
+            breatheBuf: setBreatheBuf,
+            medAmount: setMedAmount,
+            medExp: setMedExp,
+            stoneLevel: setStoneLevel,
+            stoneQuality: setStoneQuality,
+            stoneForgeEnabled: setStoneForgeEnabled,
+            stoneForgeAbsorption: setStoneForgeAbsorption,
+            stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
+            stoneForgeMultiplier: setStoneForgeMultiplier,
+            stoneSealEnabled: setStoneSealEnabled,
+            furnaceEnabled: setFurnaceEnabled,
+            furnaceQuality: setFurnaceQuality,
+            furnaceForge1Enabled: setFurnaceForge1Enabled,
+            furnaceForge1Percent: setFurnaceForge1Percent,
+            furnaceForge2Enabled: setFurnaceForge2Enabled,
+            furnaceForge2Multiplier: setFurnaceForge2Multiplier,
+            gods: setGods,
+            mirrorDouble: setMirrorDouble,
+            starSeaConversion: setStarSeaConversion,
+            dir: setDir,
+            subProcess: setSubProcess,
+            thirdProcess: setThirdProcess,
+            fenqiEnabled: setFenqiEnabled,
+            fenqiBonus: setFenqiBonus,
+            yaojieEnabled: setYaojieEnabled,
+            yaojieBonus: setYaojieBonus,
+            wanjieTianyuanEnabled: setWanjieTianyuanEnabled,
+            wanjieTianyuanBonus: setWanjieTianyuanBonus,
+            nichenzhuEnabled: setNichenzhuEnabled,
+            nichenzhuStars: setNichenzhuStars,
+            nichenzhuTransform: setNichenzhuTransform,
+            customBreatheBase: setCustomBreatheBase,
+            customBreatheValue: setCustomBreatheValue,
+            customEffective: setCustomEffective,
+        };
+
+        Object.entries(setters).forEach(([key, setter]) => {
+            if (merged[key] !== undefined) {
+                setter(merged[key]);
+            }
+        });
+
+        toast.success("讀取成功！");
+    } catch (error) {
+        console.error('讀取存檔失敗：', error);
+        toast.error('存檔資料損毀或版本不相容，請刪除或重新存檔。');
+        
+    }
+};
 
     const checkIsPerfect = (tier, level, process, exp) => {
         if (level !== 2) return false;
