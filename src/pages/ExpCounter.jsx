@@ -505,34 +505,21 @@ export default function ExpCounter() {
             sum.base += speed1;
             sum.extra += extra;
 
-            if (PS[now].level >= 3) {
-                if (dir === 0) {
-                    if (now === 0) {
-                        now = 1;
-                        continue;
-                    } else if (now === 1) {
-                        now = 2;
-                        continue;
-                    } else if (now === 2) {
-                        break;
-                    }
-                } else {
-                    break;
+            if (PS[now].level < 3) {
+                const currentLevelExps = exps[PS[now].tier][PS[now].level];
+                if (PS[now].exp >= currentLevelExps[PS[now].process]) {
+                    PS[now].exp -= currentLevelExps[PS[now].process];
+                    PS[now].process += 1;
+                    log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
+                    reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
+                }
+                if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
+                    PS[now].process = 0;
+                    PS[now].level += 1;
+                    log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
                 }
             }
 
-            const currentLevelExps = exps[PS[now].tier][PS[now].level];
-            if (PS[now].exp >= currentLevelExps[PS[now].process]) {
-                PS[now].exp -= currentLevelExps[PS[now].process];
-                PS[now].process += 1;
-                log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
-                reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
-            }
-            if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                PS[now].process = 0;
-                PS[now].level += 1;
-                log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
-            }
             if (stopType === 1 && Math.floor(vd / 10800) >= stopTime) {
                 const actualDays = Math.floor(vd / 10800);
                 log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
@@ -589,11 +576,14 @@ export default function ExpCounter() {
                         log.add("開始修練三修");
                         now = 2;
                     }
-                } else if (PS[now].level >= 3) {
-                    console.log("抵達圓滿");
-                    break;
+                } else {
+                    if (PS[now].level >= 3) {
+                        console.log("抵達圓滿");
+                        break;
+                    }
                 }
             }
+
             gains = 0;
         }
 
