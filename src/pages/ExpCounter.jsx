@@ -8,9 +8,7 @@ import {
     Card,
     CardContent,
     Checkbox,
-    Collapse,
     Dialog,
-    DialogActions,
     DialogContent,
     DialogTitle,
     Divider,
@@ -28,12 +26,9 @@ import {
     RadioGroup,
     Rating,
     Select,
-    Slider,
     Stack,
     styled,
     TextField,
-    ToggleButton,
-    ToggleButtonGroup,
     Typography
 } from "@mui/material";
 import { useState, useEffect } from "react";
@@ -125,126 +120,117 @@ export default function ExpCounter() {
     };
 
     const load = (i) => {
-    try {
-        const raw = localStorage.getItem(`data ${i}`);
-        if (!raw) {
-            toast.error('存檔不存在');
-            return;
-        }
-        const data = JSON.parse(raw);
-
-        
-        const defaultState = {
-            cal: [true, true, true, true, true, true, true],
-            tier: 4,
-            level: 0,
-            process: 0,
-            exp: 0,
-            othersAir: 0,
-            voidAir: 0,
-            prevBuff: 0,
-            currentBuff: 0,
-            breatheTime: 0,
-            breatheBuf: 100,
-            medAmount: [0,0,0,0,0,0],
-            medExp: [0,0,0,0,0,0],
-            stoneLevel: 6,
-            stoneQuality: 3,
-            stoneForgeEnabled: false,
-            stoneForgeAbsorption: 4.5,
-            stoneForgeMultiplierEnabled: false,
-            stoneForgeMultiplier: 1.15,
-            stoneSealEnabled: false,
-            furnaceEnabled: false,
-            furnaceQuality: 3,
-            furnaceForge1Enabled: false,
-            furnaceForge1Percent: 6.75,
-            furnaceForge2Enabled: false,
-            furnaceForge2Multiplier: 1.18,
-            gods: [[-1,0], [-1,0,false]],
-            mirrorDouble: true,
-            starSeaConversion: 0,
-            dir: 0,
-            subProcess: { tier: 4, level: 0, process: 0, exp: 0 },
-            thirdProcess: { tier: 4, level: 0, process: 0, exp: 0 },
-            fenqiEnabled: false,
-            fenqiBonus: 0,
-            yaojieEnabled: false,
-            yaojieBonus: 0,
-            wanjieTianyuanEnabled: false,
-            wanjieTianyuanBonus: 0,
-            nichenzhuEnabled: false,
-            nichenzhuStars: 0,
-            nichenzhuTransform: false,
-            customBreatheBase: false,
-            customBreatheValue: 0,
-            customEffective: false,
-        };
-
-        
-        const merged = { ...defaultState, ...data };
-
-
-        const setters = {
-            cal: setCal,
-            tier: setTier,
-            level: setLevel,
-            process: setProcess,
-            exp: setExp,
-            othersAir: setOthersAir,
-            voidAir: setVoidAir,
-            prevBuff: setPrevBuff,
-            currentBuff: setCurrentBuff,
-            breatheTime: setBreatheTime,
-            breatheBuf: setBreatheBuf,
-            medAmount: setMedAmount,
-            medExp: setMedExp,
-            stoneLevel: setStoneLevel,
-            stoneQuality: setStoneQuality,
-            stoneForgeEnabled: setStoneForgeEnabled,
-            stoneForgeAbsorption: setStoneForgeAbsorption,
-            stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
-            stoneForgeMultiplier: setStoneForgeMultiplier,
-            stoneSealEnabled: setStoneSealEnabled,
-            furnaceEnabled: setFurnaceEnabled,
-            furnaceQuality: setFurnaceQuality,
-            furnaceForge1Enabled: setFurnaceForge1Enabled,
-            furnaceForge1Percent: setFurnaceForge1Percent,
-            furnaceForge2Enabled: setFurnaceForge2Enabled,
-            furnaceForge2Multiplier: setFurnaceForge2Multiplier,
-            gods: setGods,
-            mirrorDouble: setMirrorDouble,
-            starSeaConversion: setStarSeaConversion,
-            dir: setDir,
-            subProcess: setSubProcess,
-            thirdProcess: setThirdProcess,
-            fenqiEnabled: setFenqiEnabled,
-            fenqiBonus: setFenqiBonus,
-            yaojieEnabled: setYaojieEnabled,
-            yaojieBonus: setYaojieBonus,
-            wanjieTianyuanEnabled: setWanjieTianyuanEnabled,
-            wanjieTianyuanBonus: setWanjieTianyuanBonus,
-            nichenzhuEnabled: setNichenzhuEnabled,
-            nichenzhuStars: setNichenzhuStars,
-            nichenzhuTransform: setNichenzhuTransform,
-            customBreatheBase: setCustomBreatheBase,
-            customBreatheValue: setCustomBreatheValue,
-            customEffective: setCustomEffective,
-        };
-
-        Object.entries(setters).forEach(([key, setter]) => {
-            if (merged[key] !== undefined) {
-                setter(merged[key]);
+        try {
+            const raw = localStorage.getItem(`data ${i}`);
+            if (!raw) {
+                toast.error('存檔不存在');
+                return;
             }
-        });
-
-        toast.success("讀取成功！");
-    } catch (error) {
-        console.error('讀取存檔失敗：', error);
-        toast.error('存檔資料損毀或版本不相容，請刪除或重新存檔。');
-        
-    }
-};
+            const data = JSON.parse(raw);
+            const defaultState = {
+                cal: [true, true, true, true, true, true, true],
+                tier: 4,
+                level: 0,
+                process: 0,
+                exp: 0,
+                othersAir: 0,
+                voidAir: 0,
+                prevBuff: 0,
+                currentBuff: 0,
+                breatheTime: 0,
+                breatheBuf: 100,
+                medAmount: [0,0,0,0,0,0],
+                medExp: [0,0,0,0,0,0],
+                stoneLevel: 6,
+                stoneQuality: 3,
+                stoneForgeEnabled: false,
+                stoneForgeAbsorption: 4.5,
+                stoneForgeMultiplierEnabled: false,
+                stoneForgeMultiplier: 1.15,
+                stoneSealEnabled: false,
+                furnaceEnabled: false,
+                furnaceQuality: 3,
+                furnaceForge1Enabled: false,
+                furnaceForge1Percent: 6.75,
+                furnaceForge2Enabled: false,
+                furnaceForge2Multiplier: 1.18,
+                gods: [[-1,0], [-1,0,false]],
+                mirrorDouble: true,
+                starSeaConversion: 0,
+                dir: 0,
+                subProcess: { tier: 4, level: 0, process: 0, exp: 0 },
+                thirdProcess: { tier: 4, level: 0, process: 0, exp: 0 },
+                fenqiEnabled: false,
+                fenqiBonus: 0,
+                yaojieEnabled: false,
+                yaojieBonus: 0,
+                wanjieTianyuanEnabled: false,
+                wanjieTianyuanBonus: 0,
+                nichenzhuEnabled: false,
+                nichenzhuStars: 0,
+                nichenzhuTransform: false,
+                customBreatheBase: false,
+                customBreatheValue: 0,
+                customEffective: false,
+            };
+            const merged = { ...defaultState, ...data };
+            const setters = {
+                cal: setCal,
+                tier: setTier,
+                level: setLevel,
+                process: setProcess,
+                exp: setExp,
+                othersAir: setOthersAir,
+                voidAir: setVoidAir,
+                prevBuff: setPrevBuff,
+                currentBuff: setCurrentBuff,
+                breatheTime: setBreatheTime,
+                breatheBuf: setBreatheBuf,
+                medAmount: setMedAmount,
+                medExp: setMedExp,
+                stoneLevel: setStoneLevel,
+                stoneQuality: setStoneQuality,
+                stoneForgeEnabled: setStoneForgeEnabled,
+                stoneForgeAbsorption: setStoneForgeAbsorption,
+                stoneForgeMultiplierEnabled: setStoneForgeMultiplierEnabled,
+                stoneForgeMultiplier: setStoneForgeMultiplier,
+                stoneSealEnabled: setStoneSealEnabled,
+                furnaceEnabled: setFurnaceEnabled,
+                furnaceQuality: setFurnaceQuality,
+                furnaceForge1Enabled: setFurnaceForge1Enabled,
+                furnaceForge1Percent: setFurnaceForge1Percent,
+                furnaceForge2Enabled: setFurnaceForge2Enabled,
+                furnaceForge2Multiplier: setFurnaceForge2Multiplier,
+                gods: setGods,
+                mirrorDouble: setMirrorDouble,
+                starSeaConversion: setStarSeaConversion,
+                dir: setDir,
+                subProcess: setSubProcess,
+                thirdProcess: setThirdProcess,
+                fenqiEnabled: setFenqiEnabled,
+                fenqiBonus: setFenqiBonus,
+                yaojieEnabled: setYaojieEnabled,
+                yaojieBonus: setYaojieBonus,
+                wanjieTianyuanEnabled: setWanjieTianyuanEnabled,
+                wanjieTianyuanBonus: setWanjieTianyuanBonus,
+                nichenzhuEnabled: setNichenzhuEnabled,
+                nichenzhuStars: setNichenzhuStars,
+                nichenzhuTransform: setNichenzhuTransform,
+                customBreatheBase: setCustomBreatheBase,
+                customBreatheValue: setCustomBreatheValue,
+                customEffective: setCustomEffective,
+            };
+            Object.entries(setters).forEach(([key, setter]) => {
+                if (merged[key] !== undefined) {
+                    setter(merged[key]);
+                }
+            });
+            toast.success("讀取成功！");
+        } catch (error) {
+            console.error('讀取存檔失敗：', error);
+            toast.error('存檔資料損毀或版本不相容，請刪除或重新存檔。');
+        }
+    };
 
     const checkIsPerfect = (tier, level, process, exp) => {
         if (level !== 2) return false;
@@ -316,7 +302,6 @@ export default function ExpCounter() {
         let reachDays = {};
         let gods1 = JSON.parse(JSON.stringify(gods));
         let gains = 0;
-        let completeBuff = 0;
         if (!cal[6]) {
             gods1[0][0] = -1;
             gods1[1][0] = -1;
@@ -352,15 +337,6 @@ export default function ExpCounter() {
         const forge1Bonus = stoneForgeEnabled ? stoneForgeAbsorption / 100 : 0;
         const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
         const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
-
-        const checkIsPerfectInner = (tier, level, process, exp) => {
-            if (level !== 2) return false;
-            const tierExpData = exps[tier]?.[2];
-            if (!tierExpData) return false;
-            const totalExp = tierExpData.reduce((a, b) => a + b, 0);
-            const currentExp = tierExpData.slice(0, process).reduce((a, b) => a + b, 0) + exp;
-            return currentExp >= totalExp;
-        };
 
         while (true) {
             vd += 1;
@@ -543,14 +519,12 @@ export default function ExpCounter() {
                         )
                     )) {
                         log.add("抵達大成, 吸收率+20%");
-                        completeBuff = 20;
                         if (stopLevel === 1) break;
                     }
                     if (now === 1 && (
                         PS[now].tier >= PS[0].tier
                     )) {
                         log.add("抵達完美");
-                        completeBuff = 20;
                         if (stopLevel === 2) break;
                     }
                     if (now === 1 && (
@@ -558,7 +532,6 @@ export default function ExpCounter() {
                         PS[now].level >= 3
                     )) {
                         log.add("抵達半步, 吸收率+40%");
-                        completeBuff = 40;
                         if (stopLevel === 3) break;
                     }
                     if (now === 2 && (
@@ -623,7 +596,6 @@ export default function ExpCounter() {
         setLogs(Array.from(log));
         setFullTime(vd);
         setRecord(records);
-        console.log(PS);
         counter.reachDays = reachDays;
         setCounters(counter);
         setFinal({ t: PS[0].tier, l: PS[0].level, p: PS[0].process, e: PS[0].exp, type: stopType, stopLevel: stopLevel });
