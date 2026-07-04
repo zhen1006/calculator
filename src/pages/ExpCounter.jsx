@@ -310,14 +310,45 @@ export default function ExpCounter() {
             }
             let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
             let now = dir;
+
+            const calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
+            const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+            let fenqiMult = 1;
+            if (fenqiEnabled && fenqiBonus > 0) fenqiMult = 1 + (fenqiBonus / 100);
+            let wanjieMult = 1;
+            if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) wanjieMult = 1 + (wanjieTianyuanBonus / 100);
+            let yaojieMult = 1;
+            if (yaojieEnabled && yaojieBonus > 0) yaojieMult = 1 + (yaojieBonus / 100);
+            const totalMult = fenqiMult * wanjieMult * yaojieMult;
+            const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+            const currentBuffBonusInner = calculateCurrentBuffBonus(
+                currentBuff,
+                PS[0]?.tier,
+                PS[0]?.level,
+                PS[0]?.process,
+                PS[0]?.exp,
+                PS[1]?.tier,
+                PS[1]?.level,
+                PS[1]?.process,
+                PS[1]?.exp
+            );
+            const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
+            const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
+            const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
+            if (speed1 + extra <= 0) {
+                toast.error("修煉速度為0，請檢查洞府靈氣、吸收率及倍率設定。");
+                return;
+            }
+
             let purpleFurnaceSpeed = 0;
             if (furnaceEnabled) {
                 const quality = furnaceQualityList[furnaceQuality] || 0;
                 const forge1 = furnaceForge1Enabled ? furnaceForge1Percent / 100 : 0;
                 const forge2 = furnaceForge2Enabled ? furnaceForge2Multiplier : 1;
                 const totalBonus = (quality + forge1) * forge2;
-                purpleFurnaceSpeed = speed * totalBonus;
+                purpleFurnaceSpeed = (speed1 + extra) * totalBonus;
             }
+
             let nichenzhuEnergy = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].maxEnergy : 0;
             let nichenzhuTotalGain = 0;
             let nichenzhuUseCount = 0;
@@ -355,36 +386,6 @@ export default function ExpCounter() {
                         nichenzhuEnergy = Math.min(nichenzhuConfig[nichenzhuStars].maxEnergy, nichenzhuEnergy + nichenzhuRegenPerInterval);
                     }
                 }
-                let calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
-                const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
-                let fenqiMult = 1;
-                if (fenqiEnabled && fenqiBonus > 0) {
-                    fenqiMult = 1 + (fenqiBonus / 100);
-                }
-                let wanjieMult = 1;
-                if (wanjieTianyuanEnabled && wanjieTianyuanBonus > 0) {
-                    wanjieMult = 1 + (wanjieTianyuanBonus / 100);
-                }
-                let yaojieMult = 1;
-                if (yaojieEnabled && yaojieBonus > 0) {
-                    yaojieMult = 1 + (yaojieBonus / 100);
-                }
-                const totalMult = fenqiMult * wanjieMult * yaojieMult;
-                const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
-                const currentBuffBonusInner = calculateCurrentBuffBonus(
-                    currentBuff,
-                    PS[0]?.tier,
-                    PS[0]?.level,
-                    PS[0]?.process,
-                    PS[0]?.exp,
-                    PS[1]?.tier,
-                    PS[1]?.level,
-                    PS[1]?.process,
-                    PS[1]?.exp
-                );
-                const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
-                const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
-                const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
 
                 if (furnaceEnabled) {
                     PS[1].exp += purpleFurnaceSpeed;
