@@ -310,8 +310,8 @@ export default function ExpCounter() {
             let PS = [_.clone(mainP), _.clone(subP), _.clone(thirdP)];
             let now = dir;
 
-            const calcAir = PS[0]?.tier === 1 ? voidAir : othersAir;
-            const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+            const calcAir = (PS[0]?.tier === 1 ? voidAir : othersAir) || 0;
+            const effSpeed = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : (customEffective || 0);
             let fenqiMult = 1;
             if (fenqiEnabled && fenqiBonus > 0) fenqiMult = 1 + (fenqiBonus / 100);
             let wanjieMult = 1;
@@ -334,8 +334,8 @@ export default function ExpCounter() {
             const totalPerfectionBonusInner = prevBuffBonusInner + currentBuffBonusInner;
             const speed1 = calcAir * (effSpeed / 100) * totalMult * cal[0];
             const extra = calcAir * (totalPerfectionBonusInner / 100) * totalMult * cal[1];
-            if (speed1 + extra <= 0) {
-                toast.error("修煉速度為0，請檢查洞府靈氣、吸收率及倍率設定。");
+            if (isNaN(speed1 + extra) || speed1 + extra <= 0) {
+                toast.error("修煉速度為 NaN 或 0，請檢查洞府靈氣、吸收率及倍率設定。");
                 return;
             }
 
@@ -423,8 +423,8 @@ export default function ExpCounter() {
                             const remainingDailyUses = maxDailyUses - (dailyNichenzhuUses[currentDay] || 0);
                             const actualUses = Math.min(availableUses, remainingDailyUses);
                             if (actualUses > 0) {
-                                const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir;
-                                const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : customEffective;
+                                const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir || 0;
+                                const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : (customEffective || 0);
                                 const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
                                 const currentBuffBonusInnerN = calculateCurrentBuffBonus(
                                     currentBuff,
@@ -691,8 +691,8 @@ export default function ExpCounter() {
     const [dir, setDir] = useState(0);
     const [fullTime, setFullTime] = useState(0);
 
-    const air = tier === 1 ? voidAir : othersAir;
-    const effectiveSpeed = customEffective === false ? effList[tier][level] : customEffective;
+    const air = (tier === 1 ? voidAir : othersAir) || 0;
+    const effectiveSpeed = customEffective === false ? (effList[tier]?.[level] || 0) : (customEffective || 0);
     const isMainPerfect = checkIsPerfect(tier, level, process, exp);
 
     const prevBuffBonus = calculatePrevBuffBonus(prevBuff, level);
@@ -722,7 +722,7 @@ export default function ExpCounter() {
     const baseSpeed = air * (effectiveSpeed * totalMultiplier / 100);
     const extraSpeed = air * (totalPerfectionBonus * totalMultiplier / 100);
 
-    const breatheBase = customBreatheBase ? customBreatheValue : breatheList[tier][0];
+    const breatheBase = customBreatheBase ? customBreatheValue : (breatheList[tier]?.[0] || 0);
     const breatheSpeed = cal[2] ? (customBreatheBase ? customBreatheValue : breatheBase * breatheBuf / 100 * breatheTime * 1.9) : 0;
 
     const medSpeed = cal[3] * medAmount.slice(0, 6).reduce((acc, _, i) => acc + medAmount[i] * medExp[i] * 10000, 0);
@@ -941,16 +941,6 @@ export default function ExpCounter() {
         );
     };
 
-    // 手動定義不包含化靈臺的 checkbox 列表
-    const myChartLabels = [
-        ['修煉速度', '修煉速度', 'white'],
-        ['額外吸收率', '額外吸收率', 'lightgreen'],
-        ['吐吶', '吐吶', 'orange'],
-        ['丹藥', '丹藥', 'magenta'],
-        ['納靈石', '納靈石', 'gold'],
-        ['至寶', '至寶', 'red']
-    ];
-
     return (
         <Stack spacing={2} sx={{ my: 2 }}>
             <Typography variant={isMobile ? "h3" : "h1"}>經驗計算器</Typography>
@@ -1020,7 +1010,6 @@ export default function ExpCounter() {
             </Stack>
 
             <Box sx={{ "*": { "*.MuiAccordionSummary-content": { justifyContent: "space-between" } } }}>
-                {/* 修煉速度 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "white" } }}>
                         修煉速度
@@ -1030,7 +1019,7 @@ export default function ExpCounter() {
                         <Stack alignItems={"center"} justifyContent={"center"} direction={isMobile ? "column" : "row"} spacing={2}>
                             <TextField
                                 value={othersAir}
-                                onChange={(e) => setOthersAir(parseFloat(e.target.value))}
+                                onChange={(e) => setOthersAir(parseFloat(e.target.value) || 0)}
                                 label={"洞府靈氣"}
                                 variant="outlined"
                                 type={"number"}
@@ -1042,7 +1031,7 @@ export default function ExpCounter() {
                             {[tier, subProcess.tier, thirdProcess.tier].includes(1) &&
                                 <TextField
                                     value={voidAir}
-                                    onChange={(e) => setVoidAir(parseFloat(e.target.value))}
+                                    onChange={(e) => setVoidAir(parseFloat(e.target.value) || 0)}
                                     label={"返虛境洞府靈氣(如有)"}
                                     variant="outlined"
                                     type={"number"}
@@ -1058,7 +1047,7 @@ export default function ExpCounter() {
                                     id={"effective-input"}
                                     value={effectiveSpeed}
                                     label={"吸收率"}
-                                    onChange={(e) => setCustomEffective(parseFloat(e.target.value))}
+                                    onChange={(e) => setCustomEffective(parseFloat(e.target.value) || 0)}
                                     disabled={customEffective === false}
                                     startAdornment={"x"}
                                     endAdornment={"%"}
@@ -1076,7 +1065,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 額外吸收率 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
                         額外吸收率
@@ -1341,7 +1329,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 吐納 - 已修改二選一 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
                         吐吶
@@ -1378,7 +1365,7 @@ export default function ExpCounter() {
                                             <Input
                                                 type={"number"}
                                                 sx={{ width: 80 }}
-                                                onChange={(e) => setBreatheBuf(parseFloat(e.target.value))}
+                                                onChange={(e) => setBreatheBuf(parseFloat(e.target.value) || 0)}
                                                 variant={"standard"}
                                                 value={breatheBuf}
                                                 endAdornment={"%"}
@@ -1390,7 +1377,7 @@ export default function ExpCounter() {
                                             <Input
                                                 type={"number"}
                                                 sx={{ width: 80 }}
-                                                onChange={(e) => setBreatheTime(parseFloat(e.target.value))}
+                                                onChange={(e) => setBreatheTime(parseFloat(e.target.value) || 0)}
                                                 variant={"standard"}
                                                 value={breatheTime}
                                                 endAdornment={"次"}
@@ -1426,7 +1413,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 丹藥 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "magenta" } }}>
                         丹藥
@@ -1445,7 +1431,7 @@ export default function ExpCounter() {
                                             startAdornment={"x"}
                                             onChange={(e) => {
                                                 let newAmount = Array.from(medAmount);
-                                                newAmount[i] = parseFloat(e.target.value);
+                                                newAmount[i] = parseFloat(e.target.value) || 0;
                                                 if (newAmount[i] < 0) return;
                                                 setMedAmount(newAmount);
                                             }}
@@ -1459,7 +1445,7 @@ export default function ExpCounter() {
                                         endAdornment={"萬"}
                                         onChange={(e) => {
                                             let newAmount = Array.from(medExp);
-                                            newAmount[i] = parseFloat(e.target.value);
+                                            newAmount[i] = parseFloat(e.target.value) || 0;
                                             if (newAmount[i] < 0) return;
                                             setMedExp(newAmount);
                                         }}
@@ -1471,7 +1457,6 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
-                {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
                         納靈石
@@ -1582,7 +1567,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 至寶 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "red" } }}>
                         至寶
@@ -1694,7 +1678,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 輔修相關 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "grey" } }}>
                         輔修相關
@@ -1927,7 +1910,7 @@ export default function ExpCounter() {
                                     type={"number"}
                                     onBlur={() => isNaN(stopTime) ? setStopTime(0) : null}
                                     min={1}
-                                    onChange={e => setStopTime(parseFloat(e.target.value))}
+                                    onChange={e => setStopTime(parseFloat(e.target.value) || 0)}
                                 />
                             </AccordionDetails>
                         </Accordion>
