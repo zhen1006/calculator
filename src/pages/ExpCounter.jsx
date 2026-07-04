@@ -132,7 +132,7 @@ export default function ExpCounter() {
                 level: 0,
                 process: 0,
                 exp: 0,
-                othersAir: 0,
+                othersAir: 1000,
                 voidAir: 0,
                 prevBuff: 0,
                 currentBuff: 0,
@@ -400,7 +400,7 @@ export default function ExpCounter() {
                         gains += gods1[0][1] * 10000;
                     }
 
-                    let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
+                    let useEnergy = (gods1[1][0] >= 0) ? (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100) : 1;
                     while (godEnergy[1] >= useEnergy) {
                         if (!(Math.random() < 0.15 && mirrorDouble && gods1[1][0] === 5)) {
                             godEnergy[1] -= useEnergy;
@@ -620,7 +620,7 @@ export default function ExpCounter() {
     const [level, setLevel] = useState(0);
     const [process, setProcess] = useState(0);
     const [exp, setExp] = useState(0);
-    const [othersAir, setOthersAir] = useState(0);
+    const [othersAir, setOthersAir] = useState(1000);
     const [voidAir, setVoidAir] = useState(0);
     const [prevBuff, setPrevBuff] = useState(0);
     const [currentBuff, setCurrentBuff] = useState(0);
@@ -737,7 +737,7 @@ export default function ExpCounter() {
     const starSeaTimes = cal[6] ? starSeaRecovery / starSeaCost : 0;
     const godSpeed0 = starSeaTimes * gods[0][1] * 10000;
 
-    const useEnergy = (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100);
+    const useEnergy = (gods[1][0] >= 0) ? (200 - 200 * (godBuff[1][gods[1][0]] + gods[1][2] * 10) / 100) : 1;
     const mirrorRecovery = (gods[1][0] >= 0) ? (96 * godRegent[gods[1][0]] + 200) : 0;
     const mirrorTimes = cal[6] ? mirrorRecovery / useEnergy : 0;
     const mirrorEffectiveTimes = mirrorTimes * (1 + (mirrorDouble && gods[1][0] === 5 ? 0.15 : 0));
