@@ -415,7 +415,7 @@ export default function ExpCounter() {
                 while (godEnergy[0] >= starSeaCost) {
                     godEnergy[0] -= starSeaCost;
                     sum.god += gods1[0][1] * 10000;
-                    inc += gods1[0][1] * 10000;
+                    gains += gods1[0][1] * 10000;
                 }
 
                 let useEnergy = (200 - 200 * (godBuff[1][gods1[1][0]] + gods1[1][2] * 10) / 100);
@@ -424,12 +424,12 @@ export default function ExpCounter() {
                         godEnergy[1] -= useEnergy;
                     }
                     sum.god += gods1[1][1] * 10000;
-                    inc += gods1[1][1] * 10000;
+                    gains += gods1[1][1] * 10000;
                     counter.doubles += 1;
                 }
 
                 const stoneDaily = (speed1 + extra) * stoneMultiplier * 10800 * cal[5];
-                inc += stoneDaily;
+                gains += stoneDaily;
                 sum.stone += stoneDaily;
 
                 if (nichenzhuEnabled) {
@@ -476,18 +476,18 @@ export default function ExpCounter() {
                 }
 
                 const breatheSpeedNow = breatheSpeed;
-                inc += breatheSpeedNow;
+                gains += breatheSpeedNow;
                 sum.breathe += breatheSpeedNow;
                 counter.breathe += breatheTime;
 
                 [...Array(5).keys()].forEach((i) => {
                     let med = cal[3] * medExp[i] * medAmount[i] * 10000;
-                    inc += med;
+                    gains += med;
                     sum.med += med;
                     counter.med[i] += cal[3] * medAmount[i];
                 })
 
-                if (inc <= 0) {
+                if (gains <= 0) {
                     alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                     break;
                 }
@@ -501,13 +501,29 @@ export default function ExpCounter() {
                     god: 0
                 };
             }
-            inc += speed1 + extra;
+            gains += speed1 + extra;
             sum.base += speed1;
             sum.extra += extra;
 
-            PS[now].exp += inc;
-            if (PS[now].exp >= exps[PS[now].tier][PS[now].level][PS[now].process]) {
-                PS[now].exp -= exps[PS[now].tier][PS[now].level][PS[now].process];
+            if (PS[now].level >= 3) {
+                if (dir === 0) {
+                    if (now === 0) {
+                        now = 1;
+                        continue;
+                    } else if (now === 1) {
+                        now = 2;
+                        continue;
+                    } else if (now === 2) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            const currentLevelExps = exps[PS[now].tier][PS[now].level];
+            if (PS[now].exp >= currentLevelExps[PS[now].process]) {
+                PS[now].exp -= currentLevelExps[PS[now].process];
                 PS[now].process += 1;
                 log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process + 1}重`)
                 reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
@@ -578,7 +594,7 @@ export default function ExpCounter() {
                     break;
                 }
             }
-            inc = 0;
+            gains = 0;
         }
 
         const calculateLevelPercentage = (tier, level, process, exp) => {
@@ -1021,7 +1037,6 @@ export default function ExpCounter() {
             </Stack>
 
             <Box sx={{ "*": { "*.MuiAccordionSummary-content": { justifyContent: "space-between" } } }}>
-                {/* 修煉速度 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "white" } }}>
                         修煉速度
@@ -1077,7 +1092,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 額外吸收率 */}
                 <Accordion sx={{ width: "100%" }} defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "lightgreen" } }}>
                         額外吸收率
@@ -1342,7 +1356,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 吐納 - 已修改二選一 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "orange" } }}>
                         吐吶
@@ -1427,7 +1440,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 丹藥 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "magenta" } }}>
                         丹藥
@@ -1472,7 +1484,6 @@ export default function ExpCounter() {
                     <AccordionActions>*請輸入您每天的進食量和經驗</AccordionActions>
                 </Accordion>
 
-                {/* 納靈石 - 刪除額外收益板塊，修正浮點數顯示 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "gold" } }}>
                         納靈石
@@ -1583,7 +1594,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 至寶 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "red" } }}>
                         至寶
@@ -1695,7 +1705,6 @@ export default function ExpCounter() {
                     </AccordionDetails>
                 </Accordion>
 
-                {/* 輔修相關 */}
                 <Accordion sx={{ width: "100%" }}>
                     <AccordionSummary expandIcon={<ExpandMore />} sx={{ "*": { color: "grey" } }}>
                         輔修相關
