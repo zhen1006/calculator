@@ -360,8 +360,8 @@ export default function ExpCounter() {
             const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
 
             while (true) {
-                if (--maxIter < 0) {
-                    toast.error("計算超出最大迭代次數（500萬步），可能陷入無限迴圈，請檢查設定。");
+                if (vd > 10800 * 500) {  // 最多模擬500天
+                    toast.error("計算時間過長，強制停止");
                     break;
                 }
                 if (vd > 10800 * 300) {
@@ -480,7 +480,7 @@ export default function ExpCounter() {
                 }
 
                      
-                                    if (PS[now].level < 3) {
+                if (PS[now].level < 3) {
                     const currentLevelExps = exps[PS[now].tier][PS[now].level];
                     if (PS[now].exp >= currentLevelExps[PS[now].process]) {
                         PS[now].exp -= currentLevelExps[PS[now].process];
@@ -489,8 +489,9 @@ export default function ExpCounter() {
                         reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
                     }
                     if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                        if (kaZhongQiEnabled && PS[now].level === 1) {
-                            log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，繼續累積直到足夠圓滿`);
+                        if (kaZhongQiEnabled && PS[now].level === 1 && now === 0) {
+                            log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，繼續累積`);
+                            // 不突破，繼續累積
                         } else {
                             PS[now].process = 0;
                             PS[now].level += 1;
@@ -505,16 +506,10 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                        if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
-                            const midLevelExp = exps[PS[0].tier][1] || [];
-                            const lateLevelExp = exps[PS[0].tier][2] || [];
-                            const totalNeededForFull = [...midLevelExp, ...lateLevelExp].reduce((a, b) => a + b, 0);
-                            const currentAccumulated = PS[0].exp + midLevelExp.reduce((a, b) => a + b, 0);
-
-                            if (currentAccumulated >= totalNeededForFull) {
-                                log.add(kaZhongQiEnabled ? "卡中期策略完成：中期累積足夠直接圓滿" : "主修抵達圓滿");
-                                if (stopLevel === 0) break;
-                            }
+                                                if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
+                            const isKaZhongQiComplete = kaZhongQiEnabled && PS[0].level === 1;
+                            log.add(isKaZhongQiComplete ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
+                            if (stopLevel === 0) break;
                         }
                         if (now === 1 && (
                             PS[now].tier > PS[0].tier - 1 ||
