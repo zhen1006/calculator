@@ -505,9 +505,16 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                        if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
-                            log.add(kaZhongQiEnabled ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
-                            if (stopLevel === 0) break;
+                           if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
+                            const midExps = exps[PS[0].tier][1] || [];
+                            const lateExps = exps[PS[0].tier][2] || [];
+                            const totalNeeded = [...midExps, ...lateExps].reduce((a, b) => a + b, 0);
+                            const currentTotal = midExps.reduce((a, b) => a + b, 0) + PS[0].exp;
+
+                            if (currentTotal >= totalNeeded) {
+                                log.add(kaZhongQiEnabled ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
+                                if (stopLevel === 0) break;
+                            }
                         }
                         if (now === 1 && (
                             PS[now].tier > PS[0].tier - 1 ||
