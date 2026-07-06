@@ -540,7 +540,7 @@ export default function ExpCounter() {
                         }
                     }
                 }
-            }
+                        }
 
             const calculateLevelPercentage = (tier, level, process, exp) => {
                 if (level === 3) return 100;
