@@ -1117,7 +1117,7 @@ export default function ExpCounter() {
                                                 </RadioGroup>
                                                 <FormControlLabel
                                                 control={<Checkbox checked={kaZhongQiEnabled} onChange={(e, v) => setKaZhongQiEnabled(v)} />}
-                                                label="是否卡中期"
+                                                label="是否卡中期（測試中 先不要使用）"
                                                 sx={{ color: 'gold' }}
                                             />
                                             </FormControl>
