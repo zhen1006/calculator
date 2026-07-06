@@ -277,29 +277,16 @@ export default function ExpCounter() {
         return 0;
     };
 
-    const calc = (mainP, subP = {}, thirdP = {}) => {
+        const calc = (mainP, subP = {}, thirdP = {}) => {
         try {
             let maxIter = 5000000;
             let log = new Set();
             let vd = 0;
             let records = [];
-            let sum = {
-                base: 0,
-                extra: 0,
-                breathe: 0,
-                med: 0,
-                stone: 0,
-                god: 0,
-            };
+            let sum = { base: 0, extra: 0, breathe: 0, med: 0, stone: 0, god: 0 };
             let godEnergy = [0, 0];
             let chargeTime = 0;
-            let counter = {
-                breathe: 0,
-                med: [0, 0, 0, 0, 0, 0],
-                chance: 0,
-                doubles: 0,
-                eat: 0,
-            }
+            let counter = { breathe: 0, med: [0, 0, 0, 0, 0, 0], chance: 0, doubles: 0, eat: 0 };
             let reachDays = {};
             let gods1 = JSON.parse(JSON.stringify(gods));
             let gains = 0;
@@ -356,9 +343,7 @@ export default function ExpCounter() {
             let conversionFactor = 1;
             if (starSeaConversion === 1) conversionFactor = 0.8;
             else if (starSeaConversion === 2) conversionFactor = 0.95;
-            const starSeaCost = 100
-                * (gods1[0][0] === 5 ? 0.85 : 1)
-                * conversionFactor;
+            const starSeaCost = 100 * (gods1[0][0] === 5 ? 0.85 : 1) * conversionFactor;
 
             const nichenzhuRegenPerInterval = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].regenPerInterval : 0;
             const nichenzhuEnergyCost = nichenzhuEnabled ? nichenzhuConfig[nichenzhuStars].energyCost : 10;
@@ -373,6 +358,10 @@ export default function ExpCounter() {
             while (true) {
                 if (--maxIter < 0) {
                     toast.error("計算超出最大迭代次數（500萬步），可能陷入無限迴圈，請檢查設定。");
+                    break;
+                }
+                if (vd > 10800 * 300) {
+                    toast.error("計算時間過長，強制停止");
                     break;
                 }
                 vd += 1;
@@ -474,13 +463,17 @@ export default function ExpCounter() {
                         else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                         break;
                     }
-                    records.push(sum);
+                    records.push({...sum});
                     PS[now].exp += gains;
                     sum = { base: 0, extra: 0, breathe: 0, med: 0, stone: 0, god: 0 };
+                    gains = 0;
                 }
-                gains += speed1 + extra;
-                sum.base += speed1;
-                sum.extra += extra;
+
+                if (vd % 10800 !== 0) {
+                    gains += speed1 + extra;
+                    sum.base += speed1;
+                    sum.extra += extra;
+                }
 
                 if (PS[now].level < 3) {
                     const currentLevelExps = exps[PS[now].tier][PS[now].level];
@@ -502,13 +495,12 @@ export default function ExpCounter() {
                     log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
                     break;
                 }
-                                if (stopType === 0) {
-                    if (!dir) {  
+                if (stopType === 0) {
+                    if (!dir) {
                         if (PS[0].level >= 3) {
-                            log.add(`主修抵達圓滿 (${tierList[PS[0].tier]}${levelList[PS[0].level]})`);
+                            log.add("主修抵達圓滿");
                             if (stopLevel === 0) break;
                         }
-
                         if (now === 1 && (
                             PS[now].tier > PS[0].tier - 1 ||
                             (PS[now].tier === PS[0].tier - 1 && PS[now].level >= 1)
@@ -516,20 +508,18 @@ export default function ExpCounter() {
                             log.add("抵達大成, 吸收率+20%");
                             if (stopLevel === 1) break;
                         }
-                        if (now === 1 && PS[now].tier >= PS[0].tier) {
+                        if (now === 1 && (PS[now].tier >= PS[0].tier)) {
                             log.add("抵達完美");
                             if (stopLevel === 2) break;
                         }
-                        if (now === 1 && PS[now].tier >= PS[0].tier && PS[now].level >= 3) {
+                        if (now === 1 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
                             log.add("抵達半步, 吸收率+40%");
                             if (stopLevel === 3) break;
                         }
-                        if (now === 2 && PS[now].tier >= PS[0].tier && PS[now].level >= 3) {
+                        if (now === 2 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
                             log.add("抵達準");
                             break;
                         }
-
-                        
                         if (PS[now].level >= 3 && now === 0) {
                             log.add("開始修練輔修");
                             now = 1;
@@ -540,13 +530,10 @@ export default function ExpCounter() {
                         }
                     } else {
                         if (PS[now].level >= 3) {
-                            console.log("抵達圓滿");
                             break;
                         }
                     }
                 }
-
-                gains = 0;
             }
 
             const calculateLevelPercentage = (tier, level, process, exp) => {
