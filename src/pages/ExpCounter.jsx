@@ -113,6 +113,7 @@ export default function ExpCounter() {
             nichenzhuTransform,
             customBreatheBase,
             customBreatheValue,
+            kaZhongQiEnabled,
         };
         localStorage.setItem(`data ${i}`, JSON.stringify(saveList));
         toast.success("Saved!")
@@ -143,16 +144,16 @@ export default function ExpCounter() {
                 stoneLevel: 6,
                 stoneQuality: 3,
                 stoneForgeEnabled: false,
-                stoneForgeAbsorption: 4.5,
+                stoneForgeAbsorption: 0,
                 stoneForgeMultiplierEnabled: false,
-                stoneForgeMultiplier: 1.15,
+                stoneForgeMultiplier: 0,
                 stoneSealEnabled: false,
                 furnaceEnabled: false,
                 furnaceQuality: 3,
                 furnaceForge1Enabled: false,
-                furnaceForge1Percent: 6.75,
+                furnaceForge1Percent: 0,
                 furnaceForge2Enabled: false,
-                furnaceForge2Multiplier: 1.18,
+                furnaceForge2Multiplier: 0,
                 gods: [[-1,0], [-1,0,false]],
                 mirrorDouble: true,
                 starSeaConversion: 0,
@@ -171,6 +172,7 @@ export default function ExpCounter() {
                 customBreatheBase: false,
                 customBreatheValue: 0,
                 customEffective: false,
+                kaZhongQiEnabled: false,
             };
             const merged = { ...defaultState, ...data };
             const setters = {
@@ -218,6 +220,7 @@ export default function ExpCounter() {
                 customBreatheBase: setCustomBreatheBase,
                 customBreatheValue: setCustomBreatheValue,
                 customEffective: setCustomEffective,
+                kaZhongQiEnabled: setKaZhongQiEnabled,
             };
             Object.entries(setters).forEach(([key, setter]) => {
                 if (merged[key] !== undefined) {
@@ -245,14 +248,15 @@ export default function ExpCounter() {
         return levelList[level] || '前期';
     };
 
-    const calculatePrevBuffBonus = (prevBuff, mainLevel) => {
+        const calculatePrevBuffBonus = (prevBuff, mainLevel, kaZhongQi = false) => {
         if (prevBuff === 0 || prevBuff === 1) return 0;
         if (prevBuff === 2) {
             if (mainLevel === 0) return 20;
             return 0;
         }
         if (prevBuff === 3) {
-            if (mainLevel === 0 || mainLevel === 1) return 40;
+            if (mainLevel === 0 || mainLevel === 1) return 40;  // 中期也生效
+            if (kaZhongQi && mainLevel === 1) return 40;        // 卡中期強化
             return 0;
         }
         return 0;
@@ -306,7 +310,7 @@ export default function ExpCounter() {
             let yaojieMult = 1;
             if (yaojieEnabled && yaojieBonus > 0) yaojieMult = 1 + (yaojieBonus / 100);
             const totalMult = fenqiMult * wanjieMult * yaojieMult;
-            const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                        const prevBuffBonusInner = calculatePrevBuffBonus(prevBuff, PS[0]?.level, kaZhongQiEnabled);
             const currentBuffBonusInner = calculateCurrentBuffBonus(
                 currentBuff,
                 PS[0]?.tier,
@@ -414,7 +418,7 @@ export default function ExpCounter() {
                             if (actualUses > 0) {
                                 const calcAirForNichen = PS[0]?.tier === 1 ? voidAir : othersAir || 0;
                                 const effSpeedForNichen = customEffective === false ? (effList[PS[0]?.tier]?.[PS[0]?.level] || 0) : (customEffective || 0);
-                                const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level);
+                                const prevBuffBonusInnerN = calculatePrevBuffBonus(prevBuff, PS[0]?.level, kaZhongQiEnabled);
                                 const currentBuffBonusInnerN = calculateCurrentBuffBonus(
                                     currentBuff,
                                     PS[0]?.tier,
@@ -642,9 +646,10 @@ export default function ExpCounter() {
     const [fenqiBonus, setFenqiBonus] = useState(0);
     const [yaojieEnabled, setYaojieEnabled] = useState(false);
     const [yaojieBonus, setYaojieBonus] = useState(0);
-    const [wanjieTianyuanEnabled, setWanjieTianyuanEnabled] = useState(false);
+        const [wanjieTianyuanEnabled, setWanjieTianyuanEnabled] = useState(false);
     const [wanjieTianyuanBonus, setWanjieTianyuanBonus] = useState(0);
     const [customEffective, setCustomEffective] = useState(false);
+    const [kaZhongQiEnabled, setKaZhongQiEnabled] = useState(false);   
     const [subProcess, setSubProcess] = useState({
         tier: 4,
         level: 0,
@@ -1094,6 +1099,11 @@ export default function ExpCounter() {
                                                         }
                                                     />
                                                 </RadioGroup>
+                                                <FormControlLabel
+                                                control={<Checkbox checked={kaZhongQiEnabled} onChange={(e, v) => setKaZhongQiEnabled(v)} />}
+                                                label="是否卡中期"
+                                                sx={{ color: 'gold' }}
+                                            />
                                             </FormControl>
                                             <Divider />
                                             <Stack spacing={1}>
