@@ -359,7 +359,7 @@ export default function ExpCounter() {
             const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
             const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
 
-                        while (true) {
+            while (true) {
                 if (vd > 10800 * 500) {
                     toast.error("計算時間過長，強制停止");
                     break;
@@ -458,18 +458,18 @@ export default function ExpCounter() {
                         counter.med[i] += cal[3] * medAmount[i];
                     })
 
-                           if (isNaN(gains) || gains <= 0) {
+                    if (isNaN(gains) || gains <= 0) {
                         if (isNaN(gains)) toast.error("數值異常（NaN），請檢查至寶設定或洞府靈氣是否為0。");
                         else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                         break;
                     }
                     records.push({...sum});
+                    // 卡中期強制加到主修
                     if (kaZhongQiEnabled) {
                         PS[0].exp += gains;
                     } else {
                         PS[now].exp += gains;
-                    }  
-                    
+                    }
                     gains = 0;
                     sum = { base: 0, extra: 0, breathe: 0, med: 0, stone: 0, god: 0 };
                 }
@@ -505,24 +505,20 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                        // 卡中期專用停止條件 - 優先判斷
                         if (kaZhongQiEnabled && PS[0].level === 1) {
                             const midExps = exps[PS[0].tier][1] || [];
                             const lateExps = exps[PS[0].tier][2] || [];
                             const totalNeeded = [...midExps, ...lateExps].reduce((a, b) => a + b, 0);
                             const currentTotal = midExps.reduce((a, b) => a + b, 0) + PS[0].exp;
-
                             if (currentTotal >= totalNeeded) {
                                 log.add("卡中期策略完成：中期累積足夠圓滿");
                                 if (stopLevel === 0) break;
                             }
-                        } 
-                        else if (PS[0].level >= 3) {
+                        } else if (PS[0].level >= 3) {
                             log.add("主修抵達圓滿");
                             if (stopLevel === 0) break;
                         }
 
-                        // 正常輔修/三修邏輯（卡中期時跳過）
                         if (!kaZhongQiEnabled) {
                             if (now === 1 && (
                                 PS[now].tier > PS[0].tier - 1 ||
@@ -557,6 +553,9 @@ export default function ExpCounter() {
                             break;
                         }
                     }
+                }
+            }
+
             const calculateLevelPercentage = (tier, level, process, exp) => {
                 if (level === 3) return 100;
                 const levelExpData = exps[tier]?.[level];
