@@ -359,12 +359,8 @@ export default function ExpCounter() {
             const forge2Multiplier = stoneForgeMultiplierEnabled ? stoneForgeMultiplier : 1;
             const stoneMultiplier = (baseAbsorption + forge1Bonus) * forge2Multiplier * (1 + qualityBonus);
 
-            while (true) {
-                if (vd > 10800 * 500) {  // 最多模擬500天
-                    toast.error("計算時間過長，強制停止");
-                    break;
-                }
-                if (vd > 10800 * 300) {
+                        while (true) {
+                if (vd > 10800 * 500) {
                     toast.error("計算時間過長，強制停止");
                     break;
                 }
@@ -469,14 +465,14 @@ export default function ExpCounter() {
                     }
                     records.push({...sum});
                     PS[0].exp += gains;
-                    
+                }
+
                 if (vd % 10800 !== 0) {
                     gains += speed1 + extra;
                     sum.base += speed1;
                     sum.extra += extra;
                 }
 
-                     
                 if (PS[now].level < 3) {
                     const currentLevelExps = exps[PS[now].tier][PS[now].level];
                     if (PS[now].exp >= currentLevelExps[PS[now].process]) {
@@ -488,7 +484,6 @@ export default function ExpCounter() {
                     if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
                         if (kaZhongQiEnabled && PS[now].level === 1 && now === 0) {
                             log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，繼續累積`);
-                            // 不突破，繼續累積
                         } else {
                             PS[now].process = 0;
                             PS[now].level += 1;
@@ -540,7 +535,7 @@ export default function ExpCounter() {
                         }
                     }
                 }
-                        }
+            }
 
             const calculateLevelPercentage = (tier, level, process, exp) => {
                 if (level === 3) return 100;
