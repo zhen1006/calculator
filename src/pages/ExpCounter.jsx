@@ -464,7 +464,7 @@ export default function ExpCounter() {
                         break;
                     }
                     records.push({...sum});
-                    PS[0].exp += gains;
+                    PS[now].exp += gains;
                 }
 
                 if (vd % 10800 !== 0) {
@@ -483,7 +483,8 @@ export default function ExpCounter() {
                     }
                     if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
                         if (kaZhongQiEnabled && PS[now].level === 1 && now === 0) {
-                            log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，繼續累積`);
+                            log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，繼續在中期累積直到圓滿`);
+                            // **不突破**，繼續累積
                         } else {
                             PS[now].process = 0;
                             PS[now].level += 1;
