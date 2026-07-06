@@ -255,8 +255,8 @@ export default function ExpCounter() {
             return 0;
         }
         if (prevBuff === 3) {
-            if (mainLevel === 0 || mainLevel === 1) return 40;  // 中期也生效
-            if (kaZhongQi && mainLevel === 1) return 40;        // 卡中期強化
+            if (mainLevel === 0 || mainLevel === 1) return 40;  
+            if (kaZhongQi && mainLevel === 1) return 40;        
             return 0;
         }
         return 0;
@@ -505,52 +505,58 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                           if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
+                        // 卡中期專用停止條件 - 優先判斷
+                        if (kaZhongQiEnabled && PS[0].level === 1) {
                             const midExps = exps[PS[0].tier][1] || [];
                             const lateExps = exps[PS[0].tier][2] || [];
                             const totalNeeded = [...midExps, ...lateExps].reduce((a, b) => a + b, 0);
                             const currentTotal = midExps.reduce((a, b) => a + b, 0) + PS[0].exp;
 
                             if (currentTotal >= totalNeeded) {
-                                log.add(kaZhongQiEnabled ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
+                                log.add("卡中期策略完成：中期累積足夠圓滿");
                                 if (stopLevel === 0) break;
                             }
+                        } 
+                        else if (PS[0].level >= 3) {
+                            log.add("主修抵達圓滿");
+                            if (stopLevel === 0) break;
                         }
-                        if (now === 1 && (
-                            PS[now].tier > PS[0].tier - 1 ||
-                            (PS[now].tier === PS[0].tier - 1 && PS[now].level >= 1)
-                        )) {
-                            log.add("抵達大成, 吸收率+20%");
-                            if (stopLevel === 1) break;
-                        }
-                        if (now === 1 && (PS[now].tier >= PS[0].tier)) {
-                            log.add("抵達完美");
-                            if (stopLevel === 2) break;
-                        }
-                        if (now === 1 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
-                            log.add("抵達半步, 吸收率+40%");
-                            if (stopLevel === 3) break;
-                        }
-                        if (now === 2 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
-                            log.add("抵達準");
-                            break;
-                        }
-                        if (PS[now].level >= 3 && now === 0) {
-                            log.add("開始修練輔修");
-                            now = 1;
-                        }
-                        if (PS[now].level >= 3 && now === 1) {
-                            log.add("開始修練三修");
-                            now = 2;
+
+                        // 正常輔修/三修邏輯（卡中期時跳過）
+                        if (!kaZhongQiEnabled) {
+                            if (now === 1 && (
+                                PS[now].tier > PS[0].tier - 1 ||
+                                (PS[now].tier === PS[0].tier - 1 && PS[now].level >= 1)
+                            )) {
+                                log.add("抵達大成, 吸收率+20%");
+                                if (stopLevel === 1) break;
+                            }
+                            if (now === 1 && (PS[now].tier >= PS[0].tier)) {
+                                log.add("抵達完美");
+                                if (stopLevel === 2) break;
+                            }
+                            if (now === 1 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
+                                log.add("抵達半步, 吸收率+40%");
+                                if (stopLevel === 3) break;
+                            }
+                            if (now === 2 && (PS[now].tier >= PS[0].tier && PS[now].level >= 3)) {
+                                log.add("抵達準");
+                                break;
+                            }
+                            if (PS[now].level >= 3 && now === 0) {
+                                log.add("開始修練輔修");
+                                now = 1;
+                            }
+                            if (PS[now].level >= 3 && now === 1) {
+                                log.add("開始修練三修");
+                                now = 2;
+                            }
                         }
                     } else {
                         if (PS[now].level >= 3) {
                             break;
                         }
                     }
-                }
-            }
-
             const calculateLevelPercentage = (tier, level, process, exp) => {
                 if (level === 3) return 100;
                 const levelExpData = exps[tier]?.[level];
