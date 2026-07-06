@@ -502,46 +502,34 @@ export default function ExpCounter() {
                     log.add(`到達設定的 ${stopTime} 天后停止（實際：${actualDays} 天）`);
                     break;
                 }
-                if (stopType === 0) {
-                    if (!dir) {
-                        if (now !== 0 && PS[now].level >= 3 && PS[now].tier < PS[0].tier) {
-                            PS[now].tier += 1;
-                            PS[now].level = 0;
-                        }
-                        if (PS[now].level >= 3) {
-                            log.add("抵達圓滿");
+                                if (stopType === 0) {
+                    if (!dir) {  
+                        if (PS[0].level >= 3) {
+                            log.add(`主修抵達圓滿 (${tierList[PS[0].tier]}${levelList[PS[0].level]})`);
                             if (stopLevel === 0) break;
                         }
+
                         if (now === 1 && (
                             PS[now].tier > PS[0].tier - 1 ||
-                            (
-                                PS[now].tier === PS[0].tier - 1 &&
-                                PS[now].level >= 1
-                            )
+                            (PS[now].tier === PS[0].tier - 1 && PS[now].level >= 1)
                         )) {
                             log.add("抵達大成, 吸收率+20%");
                             if (stopLevel === 1) break;
                         }
-                        if (now === 1 && (
-                            PS[now].tier >= PS[0].tier
-                        )) {
+                        if (now === 1 && PS[now].tier >= PS[0].tier) {
                             log.add("抵達完美");
                             if (stopLevel === 2) break;
                         }
-                        if (now === 1 && (
-                            PS[now].tier >= PS[0].tier &&
-                            PS[now].level >= 3
-                        )) {
+                        if (now === 1 && PS[now].tier >= PS[0].tier && PS[now].level >= 3) {
                             log.add("抵達半步, 吸收率+40%");
                             if (stopLevel === 3) break;
                         }
-                        if (now === 2 && (
-                            PS[now].tier >= PS[0].tier &&
-                            PS[now].level >= 3
-                        )) {
+                        if (now === 2 && PS[now].tier >= PS[0].tier && PS[now].level >= 3) {
                             log.add("抵達準");
                             break;
                         }
+
+                        
                         if (PS[now].level >= 3 && now === 0) {
                             log.add("開始修練輔修");
                             now = 1;
