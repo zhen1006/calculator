@@ -458,13 +458,16 @@ export default function ExpCounter() {
                         counter.med[i] += cal[3] * medAmount[i];
                     })
 
-                    if (isNaN(gains) || gains <= 0) {
+                           if (isNaN(gains) || gains <= 0) {
                         if (isNaN(gains)) toast.error("數值異常（NaN），請檢查至寶設定或洞府靈氣是否為0。");
                         else alert(`到達${tierList[PS[now].tier]}${levelList[PS[now].level]}${PS[now].process}重時修煉速度為0, 不可繼續`);
                         break;
                     }
                     records.push({...sum});
-                    PS[now].exp += gains;
+                    PS[now].exp += gains;   
+                    
+                    gains = 0;
+                    sum = { base: 0, extra: 0, breathe: 0, med: 0, stone: 0, god: 0 };
                 }
 
                 if (vd % 10800 !== 0) {
