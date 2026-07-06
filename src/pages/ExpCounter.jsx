@@ -503,9 +503,8 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                                                if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
-                            const isKaZhongQiComplete = kaZhongQiEnabled && PS[0].level === 1;
-                            log.add(isKaZhongQiComplete ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
+                        if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1)) {
+                            log.add(kaZhongQiEnabled ? "卡中期策略完成：中期累積足夠圓滿" : "主修抵達圓滿");
                             if (stopLevel === 0) break;
                         }
                         if (now === 1 && (
