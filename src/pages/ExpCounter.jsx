@@ -479,7 +479,7 @@ export default function ExpCounter() {
                     sum.extra += extra;
                 }
 
-                if (PS[now].level < 3) {
+                                if (PS[now].level < 3) {
                     const currentLevelExps = exps[PS[now].tier][PS[now].level];
                     if (PS[now].exp >= currentLevelExps[PS[now].process]) {
                         PS[now].exp -= currentLevelExps[PS[now].process];
@@ -488,9 +488,13 @@ export default function ExpCounter() {
                         reachDays[Math.ceil(vd / 10800 + 1).toString()] = `${processList[now]}${levelList[PS[now].level]}${PS[now].process + 1}重`
                     }
                     if (PS[now].process >= exps[PS[now].tier][PS[now].level].length) {
-                        PS[now].process = 0;
-                        PS[now].level += 1;
-                        log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+                        if (kaZhongQiEnabled && PS[now].level === 1) {
+                            log.add(`${timeString(vd * 8)}: 已達中期20重，卡中期策略啟用，不進行突破`);
+                        } else {
+                            PS[now].process = 0;
+                            PS[now].level += 1;
+                            log.add(`${timeString(vd * 8)} (${Math.round(vd / 112.5 * 1000) / 1000}): ${processList[now]}${tierList[PS[now].tier]}${levelList[PS[now].level]}`)
+                        }
                     }
                 }
 
@@ -501,8 +505,8 @@ export default function ExpCounter() {
                 }
                 if (stopType === 0) {
                     if (!dir) {
-                        if (PS[0].level >= 3) {
-                            log.add("主修抵達圓滿");
+                        if (PS[0].level >= 3 || (kaZhongQiEnabled && PS[0].level === 1 && PS[0].process >= 19)) {
+                            log.add(kaZhongQiEnabled ? "卡中期至圓滿" : "主修抵達圓滿");
                             if (stopLevel === 0) break;
                         }
                         if (now === 1 && (
