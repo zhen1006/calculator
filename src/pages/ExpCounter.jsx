@@ -468,12 +468,7 @@ export default function ExpCounter() {
                         break;
                     }
                     records.push({...sum});
-                    // 卡中期時強制加到主修
-                    if (kaZhongQiEnabled && now === 0) {
-                        PS[0].exp += gains;
-                    } else {
-                        PS[now].exp += gains;
-                    }
+                    PS[0].exp += gains;
                     
                 if (vd % 10800 !== 0) {
                     gains += speed1 + extra;
